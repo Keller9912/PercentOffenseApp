@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Weekly Stats</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+  .sortable:hover {
+    cursor: pointer;
+    background: #e0e0e0;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>Weekly Player Stats</h1>
+        <a href="index.html" class="back-button" style="right:20px; left:auto;">Home</a>
+    </div>
+
+    <div class="filters">
+        <label for="weekFilter">Week:</label>
+        <select id="weekFilter">
+            <option value="">All</option>
+        </select>
+
+        <label for="teamFilter">Team:</label>
+        <select id="teamFilter">
+            <option value="">All</option>
+        </select>
+
+        <label for="posFilter">Position:</label>
+        <select id="posFilter">
+            <option value="">All</option>
+        </select>
+    </div>
+
+    <table class="data-table" id="weeklyTable">
+        <thead>
+            <tr>
+                <th class="sortable" data-key="week">Week</th>
+                <th class="sortable" data-key="player">Player Name</th>
+                <th class="sortable" data-key="team">Team</th>
+                <th class="sortable" data-key="pos">Pos</th>
+                <th class="sortable" data-key="snaps">Snaps</th>
+                <th class="sortable" data-key="team_snaps">Team Snaps</th>
+                <th class="sortable" data-key="snap_pct">Snap %</th>
+                <th class="sortable" data-key="touches">Touches</th>
+                <th class="sortable" data-key="opportunities">Opportunities</th>
+                <th class="sortable" data-key="fpts_ppr">FPTS PPR</th>
+                <th class="sortable" data-key="pct_offense">% Offense</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+</div>
+
+<script>
+const table = document.getElementById('weeklyTable').getElementsByTagName('tbody')[0];
+let weeklyData = [];
+let sortOrder = {}; // store sort order per column
+
+// Fetch data from Apps Script API
+fetch('https://script.google.com/macros/s/AKfycbxTRNhPxu9QFv3hdYaaS0tMH7ZekFtvrGaX-d-LyXgm2LeqfXlu-ELiSZII85Gy4w2L6Q/exec')
+.then(res => res.json())
+.then(data => {
+    weeklyData = data.map(item => ({
+        week: item.week || 0,
+        player: item.player || 'N/A',
+        team: item.team || 'N/A',
+        pos: item.pos || 'N/A',
+        snaps: item.snaps || 0,
+        team_snaps: item.team_snaps || 0,
+        snap_pct: item.snap_pct || 0,
+        touches: item.touches || 0,
+        opportunities: item.opportunities || 0,
+        fpts_ppr: item.fpts_ppr || 0,
+        pct_offense: item.pct_offense != null ? (parseFloat(item.pct_offense) * 100).toFixed(1) : 0
+    }));
+    populateFilters();
+    renderTable(weeklyData);
+    makeSortable();
+});
+
+function populateFilters() {
+    const weeks = [...new Set(weeklyData.map(d => d.week))].sort((a,b)=>a-b);
+    const teams = [...new Set(weeklyData.map(d => d.team))].sort();
+    const positions = [...new Set(weeklyData.map(d => d.pos))].sort();
+
+    const weekSelect = document.getElementById('weekFilter');
+    const teamSelect = document.getElementById('teamFilter');
+    const posSelect = document.getElementById('posFilter');
+
+    weeks.forEach(w => weekSelect.innerHTML += `<option value="${w}">${w}</option>`);
+    teams.forEach(t => teamSelect.innerHTML += `<option value="${t}">${t}</option>`);
+    positions.forEach(p => posSelect.innerHTML += `<option value="${p}">${p}</option>`);
+
+    [weekSelect, teamSelect, posSelect].forEach(select => {
+        select.addEventListener('change', applyFilters);
+    });
+}
+
+function applyFilters() {
+    const week = document.getElementById('weekFilter').value;
+    const team = document.getElementById('teamFilter').value;
+    const pos = document.getElementById('posFilter').value;
+
+    let filtered = weeklyData;
+    if(week) filtered = filtered.filter(d => d.week == week);
+    if(team) filtered = filtered.filter(d => d.team == team);
+    if(pos) filtered = filtered.filter(d => d.pos == pos);
+
+    renderTable(filtered);
+}
+
+function renderTable(data) {
+    table.innerHTML = '';
+    data.forEach(row => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${row.week}</td>
+            <td>${row.player}</td>
+            <td>${row.team}</td>
+            <td>${row.pos}</td>
+            <td>${row.snaps}</td>
+            <td>${row.team_snaps}</td>
+            <td>${row.snap_pct}</td>
+            <td>${row.touches}</td>
+            <td>${row.opportunities}</td>
+            <td>${row.fpts_ppr}</td>
+            <td class="percent-offense">${row.pct_offense}</td>
+        `;
+        table.appendChild(tr);
+    });
+}
+
+// Sortable columns
+function makeSortable() {
+    const headers = document.querySelectorAll('#weeklyTable th.sortable');
+    headers.forEach(header => {
+        header.addEventListener('click', () => {
+            const key = header.dataset.key;
+            sortOrder[key] = sortOrder[key] === 'asc' ? 'desc' : 'asc';
+            const sorted = [...weeklyData].sort((a,b) => {
+                if(typeof a[key] === 'number' || !isNaN(a[key])) {
+                    return sortOrder[key] === 'asc' ? a[key]-b[key] : b[key]-a[key];
+                } else {
+                    return sortOrder[key] === 'asc' 
+                        ? a[key].localeCompare(b[key]) 
+                        : b[key].localeCompare(a[key]);
+                }
+            });
+            renderTable(sorted);
+        });
+    });
+}
+</script>
+</body>
+</html>

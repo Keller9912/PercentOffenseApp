@@ -5,35 +5,25 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Weekly Stats</title>
 <link rel="stylesheet" href="styles.css">
-<style>
-  .sortable:hover {
-    cursor: pointer;
-    background: #e0e0e0;
-  }
-</style>
+<!-- Sortable styles are now in styles.css -->
 </head>
 <body>
 <div class="container">
     <div class="header">
-        <h1>Weekly Player Stats</h1>
-        <a href="index.html" class="back-button" style="right:20px; left:auto;">Home</a>
+    <a href="index.html" class="back-button">← Back to Home</a>
+    <h1>Fantasy Football Dashboard</h1>
+    <p>Player % Offense - Weekly Stats</p>
     </div>
 
     <div class="filters">
         <label for="weekFilter">Week:</label>
-        <select id="weekFilter">
-            <option value="">All</option>
-        </select>
+        <select id="weekFilter" multiple></select>
 
         <label for="teamFilter">Team:</label>
-        <select id="teamFilter">
-            <option value="">All</option>
-        </select>
+        <select id="teamFilter" multiple></select>
 
         <label for="posFilter">Position:</label>
-        <select id="posFilter">
-            <option value="">All</option>
-        </select>
+        <select id="posFilter" multiple></select>
     </div>
 
     <table class="data-table" id="weeklyTable">
@@ -92,6 +82,7 @@ function populateFilters() {
     const teamSelect = document.getElementById('teamFilter');
     const posSelect = document.getElementById('posFilter');
 
+
     weeks.forEach(w => weekSelect.innerHTML += `<option value="${w}">${w}</option>`);
     teams.forEach(t => teamSelect.innerHTML += `<option value="${t}">${t}</option>`);
     positions.forEach(p => posSelect.innerHTML += `<option value="${p}">${p}</option>`);
@@ -101,15 +92,19 @@ function populateFilters() {
     });
 }
 
+function getSelectedValues(select) {
+    return Array.from(select.selectedOptions).map(opt => opt.value);
+}
+
 function applyFilters() {
-    const week = document.getElementById('weekFilter').value;
-    const team = document.getElementById('teamFilter').value;
-    const pos = document.getElementById('posFilter').value;
+    const weekVals = getSelectedValues(document.getElementById('weekFilter'));
+    const teamVals = getSelectedValues(document.getElementById('teamFilter'));
+    const posVals = getSelectedValues(document.getElementById('posFilter'));
 
     let filtered = weeklyData;
-    if(week) filtered = filtered.filter(d => d.week == week);
-    if(team) filtered = filtered.filter(d => d.team == team);
-    if(pos) filtered = filtered.filter(d => d.pos == pos);
+    if (weekVals.length) filtered = filtered.filter(d => weekVals.includes(String(d.week)));
+    if (teamVals.length) filtered = filtered.filter(d => teamVals.includes(d.team));
+    if (posVals.length) filtered = filtered.filter(d => posVals.includes(d.pos));
 
     renderTable(filtered);
 }
@@ -141,7 +136,11 @@ function makeSortable() {
     headers.forEach(header => {
         header.addEventListener('click', () => {
             const key = header.dataset.key;
+            // Remove sort indicators from all
+            headers.forEach(h => h.classList.remove('sorted-asc', 'sorted-desc'));
+            // Toggle sort order
             sortOrder[key] = sortOrder[key] === 'asc' ? 'desc' : 'asc';
+            header.classList.add(sortOrder[key] === 'asc' ? 'sorted-asc' : 'sorted-desc');
             const sorted = [...weeklyData].sort((a,b) => {
                 if(typeof a[key] === 'number' || !isNaN(a[key])) {
                     return sortOrder[key] === 'asc' ? a[key]-b[key] : b[key]-a[key];

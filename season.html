@@ -9,14 +9,195 @@
 <body>
   <div class="container">
     <div class="header">
-      <a href="index.html" class="back-button">← Back to Home</a>
-      <h1>Fantasy Football Dashboard</h1>
-      <p>Player % Offense - Season Averages</p>
+  <a href="index.html" class="back-button">← Back to Home</a>
+  <h1>Fantasy Football Dashboard</h1>
+  <p>Player % Offense - Season Averages</p>
     </div>
 
     <div class="content">
       <h2 class="page-title">Season Averages</h2>
-      <p>Season data table will go here.</p>
+      <div class="filters">
+        <label for="seasonWeekFilter">Week:</label>
+        <select id="seasonWeekFilter" multiple></select>
+
+        <label for="seasonTeamFilter">Team:</label>
+        <select id="seasonTeamFilter" multiple></select>
+
+        <label for="seasonPosFilter">Position:</label>
+        <select id="seasonPosFilter" multiple></select>
+      </div>
+      <table id="seasonTable" class="data-table">
+        <thead>
+          <tr>
+            <th class="sortable" data-sort="name">Player Name</th>
+            <th class="sortable" data-sort="pos">Pos</th>
+            <th class="sortable" data-sort="team">Team</th>
+            <th class="sortable" data-sort="games">Games Played</th>
+            <th class="sortable" data-sort="snaps">Snaps</th>
+            <th class="sortable" data-sort="targets">Targets</th>
+            <th class="sortable" data-sort="rushes">Rushes</th>
+            <th class="sortable" data-sort="opportunities">Opportunities</th>
+            <th class="sortable" data-sort="touches">Touches</th>
+            <th class="sortable" data-sort="snap_pct">Snap %</th>
+            <th class="sortable" data-sort="offense_pct">% Offense</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- Data rows will be inserted here -->
+        </tbody>
+      </table>
+      <script>
+      // Set your API URL here
+      const url = "https://script.google.com/macros/s/AKfycbxTRNhPxu9QFv3hdYaaS0tMH7ZekFtvrGaX-d-LyXgm2LeqfXlu-ELiSZII85Gy4w2L6Q/exec"; // e.g., "/data.json" or your API endpoint
+
+      async function loadSeasonData() {
+        if (!url) return;
+        const response = await fetch(url);
+        const data = await response.json();
+        const grouped = {};
+        data.forEach(row => {
+          const id = row["id"];
+          if (!grouped[id]) {
+            grouped[id] = {
+              id: id,
+              name: row["player"] || "",
+              pos: row["pos"] || "",
+              team: row["team"] || "",
+              games: 0,
+              snaps: 0,
+              team_snaps: 0,
+              targets: 0,
+              rushes: 0,
+              opportunities: 0,
+              touches: 0,
+              weeks: []
+            };
+          }
+          grouped[id].games += 1;
+          grouped[id].snaps += Number(row["snaps"] || 0);
+          grouped[id].team_snaps += Number(row["team_snaps"] || 0);
+          grouped[id].targets += Number(row["targets"] || 0);
+          grouped[id].rushes += Number(row["rushes"] || 0);
+          grouped[id].opportunities += Number(row["opportunities"] || 0);
+          grouped[id].touches += Number(row["touches"] || 0);
+          grouped[id].weeks.push(row["week"]);
+        });
+
+        let playerArr = Object.values(grouped).map(player => {
+          const snap_pct = player.team_snaps ? (player.snaps / player.team_snaps * 100) : 0;
+          const offense_pct = player.team_snaps ? (player.opportunities / player.team_snaps * 100) : 0;
+          return {
+            ...player,
+            snap_pct: snap_pct,
+            offense_pct: offense_pct
+          };
+        });
+
+        // Populate filter options
+        const allWeeks = [...new Set(data.map(r => r["week"]))].sort((a,b)=>a-b);
+        const allTeams = [...new Set(data.map(r => r["team"]))].sort();
+        const allPositions = [...new Set(data.map(r => r["pos"]))].sort();
+        const weekSelect = document.getElementById('seasonWeekFilter');
+        const teamSelect = document.getElementById('seasonTeamFilter');
+        const posSelect = document.getElementById('seasonPosFilter');
+        weekSelect.innerHTML = allWeeks.map(w => `<option value="${w}">${w}</option>`).join("");
+        teamSelect.innerHTML = allTeams.map(t => `<option value="${t}">${t}</option>`).join("");
+        posSelect.innerHTML = allPositions.map(p => `<option value="${p}">${p}</option>`).join("");
+
+        function getSelectedValues(select) {
+          return Array.from(select.selectedOptions).map(opt => opt.value);
+        }
+
+        function applyFilters() {
+          const weekVals = getSelectedValues(weekSelect);
+          const teamVals = getSelectedValues(teamSelect);
+          const posVals = getSelectedValues(posSelect);
+          let filtered = playerArr;
+          if (weekVals.length) filtered = filtered.filter(p => p.weeks.some(w => weekVals.includes(String(w))));
+          if (teamVals.length) filtered = filtered.filter(p => teamVals.includes(p.team));
+          if (posVals.length) filtered = filtered.filter(p => posVals.includes(p.pos));
+          renderTable(filtered);
+        }
+
+        weekSelect.addEventListener('change', applyFilters);
+        teamSelect.addEventListener('change', applyFilters);
+        posSelect.addEventListener('change', applyFilters);
+
+        // Sorting logic
+        let currentSort = { column: null, asc: true };
+        function renderTable(data) {
+          tableBody.innerHTML = "";
+          data.forEach(player => {
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+              <td>${player.name}</td>
+              <td>${player.pos}</td>
+              <td>${player.team}</td>
+              <td>${player.games}</td>
+              <td>${player.snaps}</td>
+              <td>${player.targets}</td>
+              <td>${player.rushes}</td>
+              <td>${player.opportunities}</td>
+              <td>${player.touches}</td>
+              <td>${player.snap_pct.toFixed(1)}</td>
+              <td>${player.offense_pct.toFixed(1)}</td>
+            `;
+            tableBody.appendChild(tr);
+          });
+        }
+
+        function sortTable(column) {
+          if (currentSort.column === column) {
+            currentSort.asc = !currentSort.asc;
+          } else {
+            currentSort.column = column;
+            currentSort.asc = true;
+          }
+          let sorted = [...playerArr].sort((a, b) => {
+            let valA = a[column];
+            let valB = b[column];
+            // For name/team, sort as string
+            if (["name", "team"].includes(column)) {
+              valA = valA.toLowerCase();
+              valB = valB.toLowerCase();
+              if (valA < valB) return currentSort.asc ? -1 : 1;
+              if (valA > valB) return currentSort.asc ? 1 : -1;
+              return 0;
+            } else {
+              valA = Number(valA);
+              valB = Number(valB);
+              if (valA < valB) return currentSort.asc ? -1 : 1;
+              if (valA > valB) return currentSort.asc ? 1 : -1;
+              return 0;
+            }
+          });
+          renderTable(sorted);
+        }
+
+        // Attach sort handlers and manage sort indicators
+        function updateSortIndicators() {
+          document.querySelectorAll('#seasonTable th.sortable').forEach(th => {
+            th.classList.remove('sorted-asc', 'sorted-desc');
+            if (th.dataset.sort === currentSort.column) {
+              th.classList.add(currentSort.asc ? 'sorted-asc' : 'sorted-desc');
+            }
+          });
+        }
+
+        document.querySelectorAll("#seasonTable th.sortable").forEach(th => {
+          th.style.cursor = "pointer";
+          th.onclick = () => {
+            sortTable(th.dataset.sort);
+            updateSortIndicators();
+          };
+        });
+
+        renderTable(playerArr);
+        updateSortIndicators();
+      }
+
+      window.addEventListener("DOMContentLoaded", loadSeasonData);
+      </script>
     </div>
   </div>
 </body>

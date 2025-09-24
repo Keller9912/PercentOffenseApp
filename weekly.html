@@ -10,21 +10,27 @@
 <body>
 <div class="container">
     <div class="header">
-    <a href="index.html" class="back-button">← Back to Home</a>
-    <h1>Fantasy Football Dashboard</h1>
-    <p>Player % Offense - Weekly Stats</p>
-    </div>
+        <a href="index.html" class="back-button">← Back to Home</a>
+        <h1>Fantasy Football Dashboard</h1>
+        <p>Player % Offense - Weekly Stats</p>
+        </div>
 
-    <div class="filters">
-        <label for="weekFilter">Week:</label>
-        <select id="weekFilter" multiple></select>
-
-        <label for="teamFilter">Team:</label>
-        <select id="teamFilter" multiple></select>
-
-        <label for="posFilter">Position:</label>
-        <select id="posFilter" multiple></select>
-    </div>
+        <div style="display: flex; justify-content: center; width: 100%;">
+            <div class="filters">
+                <div class="filter-dropdown" id="weekDropdown">
+                    <button type="button" class="filter-button" id="weekDropdownBtn">Week <span class="filter-arrow">▼</span></button>
+                    <div class="filter-dropdown-menu" id="weekDropdownMenu"></div>
+                </div>
+                <div class="filter-dropdown" id="teamDropdown">
+                    <button type="button" class="filter-button" id="teamDropdownBtn">Team <span class="filter-arrow">▼</span></button>
+                    <div class="filter-dropdown-menu" id="teamDropdownMenu"></div>
+                </div>
+                <div class="filter-dropdown" id="posDropdown">
+                    <button type="button" class="filter-button" id="posDropdownBtn">Position <span class="filter-arrow">▼</span></button>
+                    <div class="filter-dropdown-menu" id="posDropdownMenu"></div>
+                </div>
+            </div>
+        </div>
 
     <table class="data-table" id="weeklyTable">
         <thead>
@@ -68,28 +74,96 @@ fetch('https://script.google.com/macros/s/AKfycbxTRNhPxu9QFv3hdYaaS0tMH7ZekFtvrG
         fpts_ppr: item.fpts_ppr || 0,
         pct_offense: item.pct_offense != null ? (parseFloat(item.pct_offense) * 100).toFixed(1) : 0
     }));
-    populateFilters();
-    renderTable(weeklyData);
+    setupCustomFilters();
+    // Default sort by % Offense descending
+    sortOrder = { pct_offense: 'desc' };
+    const sorted = [...weeklyData].sort((a, b) => b.pct_offense - a.pct_offense);
+    renderTable(sorted);
     makeSortable();
 });
 
-function populateFilters() {
+function setupCustomFilters() {
+    // Helper to build menu
+    function buildMenu(menuId, options, selected, onChange) {
+        const menu = document.getElementById(menuId);
+        menu.innerHTML = options.map(opt => `
+            <div class="filter-option${selected.includes(opt) ? ' selected' : ''}" data-value="${opt}">
+                <span class="filter-checkmark">✔</span>
+                <span class="filter-option-text">${opt}</span>
+            </div>
+        `).join('');
+        Array.from(menu.children).forEach(child => {
+            child.onclick = function(e) {
+                e.stopPropagation();
+                child.classList.toggle('selected');
+                onChange();
+            };
+        });
+    }
+
+    // Dropdown open/close logic
+    function setupDropdown(dropdownId, btnId, menuId) {
+        const dropdown = document.getElementById(dropdownId);
+        const btn = document.getElementById(btnId);
+        const menu = document.getElementById(menuId);
+        btn.onclick = function(e) {
+            e.stopPropagation();
+            closeAllDropdowns();
+            menu.classList.toggle('open');
+            btn.classList.toggle('open');
+        };
+        document.addEventListener('click', function(e) {
+            if (!dropdown.contains(e.target)) {
+                menu.classList.remove('open');
+                btn.classList.remove('open');
+            }
+        });
+    }
+    function closeAllDropdowns() {
+        document.querySelectorAll('.filter-dropdown-menu').forEach(m => m.classList.remove('open'));
+        document.querySelectorAll('.filter-button').forEach(b => b.classList.remove('open'));
+    }
+
+    // Get unique options
     const weeks = [...new Set(weeklyData.map(d => d.week))].sort((a,b)=>a-b);
     const teams = [...new Set(weeklyData.map(d => d.team))].sort();
     const positions = [...new Set(weeklyData.map(d => d.pos))].sort();
+    let selectedWeeks = [];
+    let selectedTeams = [];
+    let selectedPositions = [];
 
-    const weekSelect = document.getElementById('weekFilter');
-    const teamSelect = document.getElementById('teamFilter');
-    const posSelect = document.getElementById('posFilter');
+    function applyCustomFilters() {
+        selectedWeeks = Array.from(document.querySelectorAll('#weekDropdownMenu .filter-option.selected')).map(d => d.dataset.value);
+        selectedTeams = Array.from(document.querySelectorAll('#teamDropdownMenu .filter-option.selected')).map(d => d.dataset.value);
+        selectedPositions = Array.from(document.querySelectorAll('#posDropdownMenu .filter-option.selected')).map(d => d.dataset.value);
+        let filtered = weeklyData;
+        if (selectedWeeks.length) filtered = filtered.filter(d => selectedWeeks.includes(String(d.week)));
+        if (selectedTeams.length) filtered = filtered.filter(d => selectedTeams.includes(d.team));
+        if (selectedPositions.length) filtered = filtered.filter(d => selectedPositions.includes(d.pos));
+        // Preserve current sort
+        let sortKey = Object.keys(sortOrder).find(k => sortOrder[k]);
+        let sortDir = sortKey ? sortOrder[sortKey] : null;
+        if (sortKey) {
+            filtered = [...filtered].sort((a, b) => {
+                if(typeof a[sortKey] === 'number' || !isNaN(a[sortKey])) {
+                    return sortDir === 'asc' ? a[sortKey]-b[sortKey] : b[sortKey]-a[sortKey];
+                } else {
+                    return sortDir === 'asc' 
+                        ? a[sortKey].localeCompare(b[sortKey]) 
+                        : b[sortKey].localeCompare(a[sortKey]);
+                }
+            });
+        }
+        renderTable(filtered);
+    }
 
+    buildMenu('weekDropdownMenu', weeks, selectedWeeks, applyCustomFilters);
+    buildMenu('teamDropdownMenu', teams, selectedTeams, applyCustomFilters);
+    buildMenu('posDropdownMenu', positions, selectedPositions, applyCustomFilters);
 
-    weeks.forEach(w => weekSelect.innerHTML += `<option value="${w}">${w}</option>`);
-    teams.forEach(t => teamSelect.innerHTML += `<option value="${t}">${t}</option>`);
-    positions.forEach(p => posSelect.innerHTML += `<option value="${p}">${p}</option>`);
-
-    [weekSelect, teamSelect, posSelect].forEach(select => {
-        select.addEventListener('change', applyFilters);
-    });
+    setupDropdown('weekDropdown', 'weekDropdownBtn', 'weekDropdownMenu');
+    setupDropdown('teamDropdown', 'teamDropdownBtn', 'teamDropdownMenu');
+    setupDropdown('posDropdown', 'posDropdownBtn', 'posDropdownMenu');
 }
 
 function getSelectedValues(select) {

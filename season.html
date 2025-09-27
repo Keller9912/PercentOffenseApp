@@ -9,9 +9,9 @@
 <body>
   <div class="container">
     <div class="header">
-  <a href="index.html" class="back-button">← Back to Home</a>
-  <h1>Fantasy Football Dashboard</h1>
-  <p>Player % Offense - Season Averages</p>
+      <a href="index.html" class="back-button">← Back to Home</a>
+      <h1>Fantasy Football Dashboard</h1>
+      <p>Player % Offense - Season Averages</p>
     </div>
 
     <div class="content">
@@ -25,9 +25,9 @@
               <div id="seasonPlayerOptions"></div>
             </div>
           </div>
-          <div class="filter-dropdown" id="seasonWeekDropdown">
-            <button type="button" class="filter-button" id="seasonWeekDropdownBtn">Week <span class="filter-arrow">▼</span></button>
-            <div class="filter-dropdown-menu" id="seasonWeekDropdownMenu"></div>
+          <div class="filter-dropdown" id="seasonGamesDropdown">
+            <button type="button" class="filter-button" id="seasonGamesDropdownBtn">Games Played <span class="filter-arrow">▼</span></button>
+            <div class="filter-dropdown-menu" id="seasonGamesDropdownMenu"></div>
           </div>
           <div class="filter-dropdown" id="seasonTeamDropdown">
             <button type="button" class="filter-button" id="seasonTeamDropdownBtn">Team <span class="filter-arrow">▼</span></button>
@@ -59,59 +59,79 @@
           <!-- Data rows will be inserted here -->
         </tbody>
       </table>
-      <script>
-      // Set your API URL here
-      const url = "https://script.google.com/macros/s/AKfycbxTRNhPxu9QFv3hdYaaS0tMH7ZekFtvrGaX-d-LyXgm2LeqfXlu-ELiSZII85Gy4w2L6Q/exec"; // e.g., "/data.json" or your API endpoint
+    </div>
+  </div>
 
-      async function loadSeasonData() {
-        // --- Player Search Filter ---
-        let allPlayers = [...new Set(playerArr.map(p => p.name))].sort();
-        let selectedPlayers = [];
-        function renderPlayerOptions(filter = "") {
-          const optionsDiv = document.getElementById('seasonPlayerOptions');
-          const lower = filter.toLowerCase();
-          optionsDiv.innerHTML = allPlayers
-            .filter(name => name.toLowerCase().includes(lower))
-            .map(name => `
-              <div class="filter-option${selectedPlayers.includes(name) ? ' selected' : ''}" data-value="${name}">
-                <input type="checkbox" ${selectedPlayers.includes(name) ? 'checked' : ''} />
-                <span class="filter-option-text">${name}</span>
-              </div>
-            `).join("");
-          Array.from(optionsDiv.children).forEach(child => {
-            child.onclick = function(e) {
-              e.stopPropagation();
-              const value = child.dataset.value;
-              if (selectedPlayers.includes(value)) {
-                selectedPlayers = selectedPlayers.filter(v => v !== value);
-              } else {
-                selectedPlayers.push(value);
-              }
-              renderPlayerOptions(document.getElementById('seasonPlayerSearch').value);
-              applyCustomFilters();
-            };
-          });
-        }
-        document.getElementById('seasonPlayerDropdownBtn').onclick = function(e) {
+  <script>
+    // Set your API URL here
+    const url = "https://script.google.com/macros/s/AKfycbxTRNhPxu9QFv3hdYaaS0tMH7ZekFtvrGaX-d-LyXgm2LeqfXlu-ELiSZII85Gy4w2L6Q/exec";
+
+    let playerArr = [];
+    let allPlayers = [];
+    let selectedPlayers = [];
+    let currentFiltered = [];
+    let currentSort = { column: null, asc: true };
+
+    // --- Player Search Filter ---
+    function renderPlayerOptions(filter = "") {
+      const optionsDiv = document.getElementById('seasonPlayerOptions');
+      const lower = filter.toLowerCase();
+      optionsDiv.innerHTML = allPlayers
+        .filter(name => name.toLowerCase().includes(lower))
+        .map(name => `
+          <div class="filter-option${selectedPlayers.includes(name) ? ' selected' : ''}" data-value="${name}">
+            <span class="filter-checkmark">✔</span>
+            <span class="filter-option-text">${name}</span>
+          </div>
+        `).join("");
+      
+      Array.from(optionsDiv.children).forEach(child => {
+        child.onclick = function(e) {
           e.stopPropagation();
-          closeAllDropdowns();
-          document.getElementById('seasonPlayerDropdownMenu').classList.toggle('open');
-          this.classList.toggle('open');
-        };
-        document.getElementById('seasonPlayerSearch').oninput = function(e) {
-          renderPlayerOptions(this.value);
-        };
-        document.addEventListener('click', function(e) {
-          if (!document.getElementById('seasonPlayerDropdown').contains(e.target)) {
-            document.getElementById('seasonPlayerDropdownMenu').classList.remove('open');
-            document.getElementById('seasonPlayerDropdownBtn').classList.remove('open');
+          const value = child.dataset.value;
+          if (selectedPlayers.includes(value)) {
+            selectedPlayers = selectedPlayers.filter(v => v !== value);
+          } else {
+            selectedPlayers.push(value);
           }
-        });
-        renderPlayerOptions();
-        if (!url) return;
+          renderPlayerOptions(document.getElementById('seasonPlayerSearch').value);
+          applyCustomFilters();
+        };
+      });
+    }
+
+    // Dropdown open/close logic
+    function setupDropdown(dropdownId, btnId, menuId) {
+      const dropdown = document.getElementById(dropdownId);
+      const btn = document.getElementById(btnId);
+      const menu = document.getElementById(menuId);
+      btn.onclick = function(e) {
+        e.stopPropagation();
+        closeAllDropdowns();
+        menu.classList.toggle('open');
+        btn.classList.toggle('open');
+      };
+      document.addEventListener('click', function(e) {
+        if (!dropdown.contains(e.target)) {
+          menu.classList.remove('open');
+          btn.classList.remove('open');
+        }
+      });
+    }
+
+    function closeAllDropdowns() {
+      document.querySelectorAll('.filter-dropdown-menu').forEach(m => m.classList.remove('open'));
+      document.querySelectorAll('.filter-button').forEach(b => b.classList.remove('open'));
+    }
+
+    async function loadSeasonData() {
+      if (!url) return;
+      
+      try {
         const response = await fetch(url);
         const data = await response.json();
         console.log('Fetched API data:', data);
+        
         const grouped = {};
         data.forEach(row => {
           const id = row["id"];
@@ -141,7 +161,7 @@
           grouped[id].weeks.push(row["week"]);
         });
 
-        let playerArr = Object.values(grouped).map(player => {
+        playerArr = Object.values(grouped).map(player => {
           const snap_pct = player.team_snaps ? (player.snaps / player.team_snaps * 100) : 0;
           const offense_pct = player.team_snaps ? (player.opportunities / player.team_snaps * 100) : 0;
           return {
@@ -152,158 +172,72 @@
         });
         console.log('Aggregated playerArr:', playerArr);
 
-        // Custom filter logic (same as weekly)
-        function buildMenu(menuId, options, selected, onChange) {
-          const menu = document.getElementById(menuId);
-          menu.innerHTML = options.map(opt => `
-            <div class="filter-option${selected.includes(opt) ? ' selected' : ''}" data-value="${opt}">
-                <span class="filter-checkmark">✔</span>
-                <span class="filter-option-text">${opt}</span>
-            </div>
-          `).join('');
-          Array.from(menu.children).forEach(child => {
-            child.onclick = function(e) {
-              e.stopPropagation();
-              child.classList.toggle('selected');
-              onChange();
-            };
-          });
-        }
+        allPlayers = [...new Set(playerArr.map(p => p.name))].sort();
+        renderPlayerOptions();
+        setupCustomFilters();
+        setupDropdown('seasonPlayerDropdown', 'seasonPlayerDropdownBtn', 'seasonPlayerDropdownMenu');
+        
+        document.getElementById('seasonPlayerSearch').oninput = function(e) {
+          renderPlayerOptions(this.value);
+        };
+        
+        // Default sort by % Offense descending
+        currentFiltered = [...playerArr].sort((a, b) => b.offense_pct - a.offense_pct);
+        currentSort = { column: 'offense_pct', asc: false };
+        renderTable(currentFiltered);
+        updateSortIndicators();
+        
+      } catch (error) {
+        console.error('Error loading season data:', error);
+      }
+    }
 
-        function setupDropdown(dropdownId, btnId, menuId) {
-          const dropdown = document.getElementById(dropdownId);
-          const btn = document.getElementById(btnId);
-          const menu = document.getElementById(menuId);
-          btn.onclick = function(e) {
+    function setupCustomFilters() {
+      // Helper to build menu
+      function buildMenu(menuId, options, selected, onChange) {
+        const menu = document.getElementById(menuId);
+        menu.innerHTML = options.map(opt => `
+          <div class="filter-option${selected.includes(opt) ? ' selected' : ''}" data-value="${opt}">
+            <span class="filter-checkmark">✔</span>
+            <span class="filter-option-text">${opt}</span>
+          </div>
+        `).join('');
+        Array.from(menu.children).forEach(child => {
+          child.onclick = function(e) {
             e.stopPropagation();
-            closeAllDropdowns();
-            menu.classList.toggle('open');
-            btn.classList.toggle('open');
+            child.classList.toggle('selected');
+            onChange();
           };
-          document.addEventListener('click', function(e) {
-            if (!dropdown.contains(e.target)) {
-              menu.classList.remove('open');
-              btn.classList.remove('open');
-            }
-          });
-        }
-        function closeAllDropdowns() {
-          document.querySelectorAll('.filter-dropdown-menu').forEach(m => m.classList.remove('open'));
-          document.querySelectorAll('.filter-button').forEach(b => b.classList.remove('open'));
-        }
+        });
+      }
 
-        // Get unique options
-        const weeks = [...new Set(data.map(d => d.week))].sort((a,b)=>a-b);
-        const teams = [...new Set(data.map(d => d.team))].sort();
-        const positions = [...new Set(data.map(d => d.pos))].sort();
-        let selectedWeeks = [];
-        let selectedTeams = [];
-        let selectedPositions = [];
-  let currentFiltered = [];
-  let currentSort = { column: null, asc: true };
+      // Get unique options
+      const gamesPlayed = [...new Set(playerArr.map(d => d.games))].sort((a,b)=>a-b);
+      const teams = [...new Set(playerArr.map(d => d.team))].sort();
+      const positions = [...new Set(playerArr.map(d => d.pos))].sort();
+      let selectedGames = [];
+      let selectedTeams = [];
+      let selectedPositions = [];
 
-        // Sorting and rendering helper
-        function sortAndRender() {
-          if (currentSort.column) {
-            sortTable(currentSort.column);
-            updateSortIndicators();
-          } else {
-            renderTable(currentFiltered);
-            updateSortIndicators();
-          }
-        }
-
-        function applyCustomFilters() {
-          selectedWeeks = Array.from(document.querySelectorAll('#seasonWeekDropdownMenu .filter-option.selected')).map(d => d.dataset.value);
-          selectedTeams = Array.from(document.querySelectorAll('#seasonTeamDropdownMenu .filter-option.selected')).map(d => d.dataset.value);
-          selectedPositions = Array.from(document.querySelectorAll('#seasonPosDropdownMenu .filter-option.selected')).map(d => d.dataset.value);
-          let filtered = playerArr;
-          if (selectedPlayers.length) filtered = filtered.filter(p => selectedPlayers.includes(p.name));
-          if (selectedWeeks.length) filtered = filtered.filter(p => p.weeks.some(w => selectedWeeks.includes(String(w))));
-          if (selectedTeams.length) filtered = filtered.filter(p => selectedTeams.includes(p.team));
-          if (selectedPositions.length) filtered = filtered.filter(p => selectedPositions.includes(p.pos));
-          currentFiltered = filtered;
-          // If a sort column is set, sort using current direction
-          if (currentSort.column) {
-            let sorted = [...currentFiltered].sort((a, b) => {
-              let valA = a[currentSort.column];
-              let valB = b[currentSort.column];
-              if (["name", "team"].includes(currentSort.column)) {
-                valA = valA.toLowerCase();
-                valB = valB.toLowerCase();
-                if (valA < valB) return currentSort.asc ? -1 : 1;
-                if (valA > valB) return currentSort.asc ? 1 : -1;
-                return 0;
-              } else {
-                valA = Number(valA);
-                valB = Number(valB);
-                if (valA < valB) return currentSort.asc ? -1 : 1;
-                if (valA > valB) return currentSort.asc ? 1 : -1;
-                return 0;
-              }
-            });
-            currentFiltered = sorted;
-          }
-          renderTable(currentFiltered);
-          updateSortIndicators();
-        }
-
-  buildMenu('seasonWeekDropdownMenu', weeks, selectedWeeks, applyCustomFilters);
-  buildMenu('seasonTeamDropdownMenu', teams, selectedTeams, applyCustomFilters);
-  buildMenu('seasonPosDropdownMenu', positions, selectedPositions, applyCustomFilters);
-
-  setupDropdown('seasonWeekDropdown', 'seasonWeekDropdownBtn', 'seasonWeekDropdownMenu');
-  setupDropdown('seasonTeamDropdown', 'seasonTeamDropdownBtn', 'seasonTeamDropdownMenu');
-  setupDropdown('seasonPosDropdown', 'seasonPosDropdownBtn', 'seasonPosDropdownMenu');
-
-  // Render table on load
-  currentFiltered = [...playerArr].sort((a, b) => b.offense_pct - a.offense_pct);
-  currentSort = { column: 'offense_pct', asc: false };
-  renderTable(currentFiltered);
-  updateSortIndicators();
-
-        // Sorting logic
-  // currentSort already declared above
-        function renderTable(data) {
-          const tableBody = document.querySelector('#seasonTable tbody');
-          tableBody.innerHTML = "";
-          if (!data || data.length === 0) {
-            tableBody.innerHTML = '<tr><td colspan="11">No data available</td></tr>';
-            console.warn('renderTable called with empty data:', data);
-            return;
-          }
-          data.forEach(player => {
-            const tr = document.createElement("tr");
-            tr.innerHTML = `
-              <td>${player.name}</td>
-              <td>${player.pos}</td>
-              <td>${player.team}</td>
-              <td>${player.games}</td>
-              <td>${player.snaps}</td>
-              <td>${player.targets}</td>
-              <td>${player.rushes}</td>
-              <td>${player.opportunities}</td>
-              <td>${player.touches}</td>
-              <td>${player.snap_pct.toFixed(1)}</td>
-              <td>${player.offense_pct.toFixed(1)}</td>
-            `;
-            tableBody.appendChild(tr);
-          });
-        }
-
-        function sortTable(column) {
-          if (currentSort.column === column) {
-            currentSort.asc = !currentSort.asc;
-          } else {
-            currentSort.column = column;
-            // Default to descending for offense_pct, ascending otherwise
-            currentSort.asc = column === 'offense_pct' ? false : true;
-          }
+      function applyCustomFilters() {
+        selectedGames = Array.from(document.querySelectorAll('#seasonGamesDropdownMenu .filter-option.selected')).map(d => d.dataset.value);
+        selectedTeams = Array.from(document.querySelectorAll('#seasonTeamDropdownMenu .filter-option.selected')).map(d => d.dataset.value);
+        selectedPositions = Array.from(document.querySelectorAll('#seasonPosDropdownMenu .filter-option.selected')).map(d => d.dataset.value);
+        
+        let filtered = playerArr;
+        if (selectedPlayers.length) filtered = filtered.filter(p => selectedPlayers.includes(p.name));
+        if (selectedGames.length) filtered = filtered.filter(p => selectedGames.includes(String(p.games)));
+        if (selectedTeams.length) filtered = filtered.filter(p => selectedTeams.includes(p.team));
+        if (selectedPositions.length) filtered = filtered.filter(p => selectedPositions.includes(p.pos));
+        
+        currentFiltered = filtered;
+        
+        // Preserve current sort
+        if (currentSort.column) {
           let sorted = [...currentFiltered].sort((a, b) => {
-            let valA = a[column];
-            let valB = b[column];
-            // For name/team, sort as string
-            if (["name", "team"].includes(column)) {
+            let valA = a[currentSort.column];
+            let valB = b[currentSort.column];
+            if (["name", "team"].includes(currentSort.column)) {
               valA = valA.toLowerCase();
               valB = valB.toLowerCase();
               if (valA < valB) return currentSort.asc ? -1 : 1;
@@ -318,44 +252,117 @@
             }
           });
           currentFiltered = sorted;
-          renderTable(currentFiltered);
-        function sortAndRender() {
-          if (currentSort.column) {
-            sortTable(currentSort.column);
-            updateSortIndicators();
-          } else {
-            renderTable(currentFiltered);
-            updateSortIndicators();
-          }
         }
-        }
-
-        // Attach sort handlers and manage sort indicators
-        function updateSortIndicators() {
-          document.querySelectorAll('#seasonTable th.sortable').forEach(th => {
-            th.classList.remove('sorted-asc', 'sorted-desc');
-            if (th.dataset.sort === currentSort.column) {
-              th.classList.add(currentSort.asc ? 'sorted-asc' : 'sorted-desc');
-            }
-          });
-        }
-
-        document.querySelectorAll("#seasonTable th.sortable").forEach(th => {
-          th.style.cursor = "pointer";
-          th.onclick = () => {
-            currentSort.column = th.dataset.sort;
-            sortTable(th.dataset.sort);
-            updateSortIndicators();
-          };
-        });
-
-        renderTable(playerArr);
+        renderTable(currentFiltered);
         updateSortIndicators();
       }
 
-      window.addEventListener("DOMContentLoaded", loadSeasonData);
-      </script>
-    </div>
-  </div>
+      // Make applyCustomFilters globally available
+      window.applyCustomFilters = applyCustomFilters;
+
+      buildMenu('seasonGamesDropdownMenu', gamesPlayed, selectedGames, applyCustomFilters);
+      buildMenu('seasonTeamDropdownMenu', teams, selectedTeams, applyCustomFilters);
+      buildMenu('seasonPosDropdownMenu', positions, selectedPositions, applyCustomFilters);
+
+      setupDropdown('seasonGamesDropdown', 'seasonGamesDropdownBtn', 'seasonGamesDropdownMenu');
+      setupDropdown('seasonTeamDropdown', 'seasonTeamDropdownBtn', 'seasonTeamDropdownMenu');
+      setupDropdown('seasonPosDropdown', 'seasonPosDropdownBtn', 'seasonPosDropdownMenu');
+    }
+
+    function renderTable(data) {
+      const tableBody = document.querySelector('#seasonTable tbody');
+      tableBody.innerHTML = "";
+      if (!data || data.length === 0) {
+        tableBody.innerHTML = '<tr><td colspan="11">No data available</td></tr>';
+        console.warn('renderTable called with empty data:', data);
+        return;
+      }
+      data.forEach(player => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${player.name}</td>
+          <td>${player.pos}</td>
+          <td>${player.team}</td>
+          <td>${player.games}</td>
+          <td>${player.snaps}</td>
+          <td>${player.targets}</td>
+          <td>${player.rushes}</td>
+          <td>${player.opportunities}</td>
+          <td>${player.touches}</td>
+          <td>${player.snap_pct.toFixed(1)}</td>
+          <td class="percent-offense">${player.offense_pct.toFixed(1)}</td>
+        `;
+        tableBody.appendChild(tr);
+      });
+    }
+
+    function sortTable(column) {
+      if (currentSort.column === column) {
+        currentSort.asc = !currentSort.asc;
+      } else {
+        currentSort.column = column;
+        // Default to descending for offense_pct, ascending otherwise
+        currentSort.asc = column === 'offense_pct' ? false : true;
+      }
+      
+      // Get current filtered data and apply sort
+      const selectedGames = Array.from(document.querySelectorAll('#seasonGamesDropdownMenu .filter-option.selected')).map(d => d.dataset.value);
+      const selectedTeams = Array.from(document.querySelectorAll('#seasonTeamDropdownMenu .filter-option.selected')).map(d => d.dataset.value);
+      const selectedPositions = Array.from(document.querySelectorAll('#seasonPosDropdownMenu .filter-option.selected')).map(d => d.dataset.value);
+      
+      let filtered = playerArr;
+      if (selectedPlayers.length) filtered = filtered.filter(p => selectedPlayers.includes(p.name));
+      if (selectedGames.length) filtered = filtered.filter(p => selectedGames.includes(String(p.games)));
+      if (selectedTeams.length) filtered = filtered.filter(p => selectedTeams.includes(p.team));
+      if (selectedPositions.length) filtered = filtered.filter(p => selectedPositions.includes(p.pos));
+      
+      let sorted = [...filtered].sort((a, b) => {
+        let valA = a[column];
+        let valB = b[column];
+        if (["name", "team"].includes(column)) {
+          valA = valA.toLowerCase();
+          valB = valB.toLowerCase();
+          if (valA < valB) return currentSort.asc ? -1 : 1;
+          if (valA > valB) return currentSort.asc ? 1 : -1;
+          return 0;
+        } else {
+          valA = Number(valA);
+          valB = Number(valB);
+          if (valA < valB) return currentSort.asc ? -1 : 1;
+          if (valA > valB) return currentSort.asc ? 1 : -1;
+          return 0;
+        }
+      });
+      currentFiltered = sorted;
+      renderTable(currentFiltered);
+    }
+
+    // Attach sort handlers and manage sort indicators
+    function updateSortIndicators() {
+      document.querySelectorAll('#seasonTable th.sortable').forEach(th => {
+        th.classList.remove('sorted-asc', 'sorted-desc');
+        if (th.dataset.sort === currentSort.column) {
+          th.classList.add(currentSort.asc ? 'sorted-asc' : 'sorted-desc');
+        }
+      });
+    }
+
+    // Initialize sorting when DOM is loaded
+    function initializeSorting() {
+      document.querySelectorAll("#seasonTable th.sortable").forEach(th => {
+        th.style.cursor = "pointer";
+        th.onclick = () => {
+          sortTable(th.dataset.sort);
+          updateSortIndicators();
+        };
+      });
+    }
+
+    window.addEventListener("DOMContentLoaded", () => {
+      loadSeasonData().then(() => {
+        initializeSorting();
+      });
+    });
+  </script>
 </body>
 </html>

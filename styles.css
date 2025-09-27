@@ -16,6 +16,7 @@
   border: 1.5px solid #667eea;
   background: #fff;
 }
+
 /* === GLOBAL RESET === */
 * {
   margin: 0;
@@ -171,6 +172,13 @@ body {
   z-index: 1000;
 }
 
+/* Make player filter wider */
+#playerDropdown, #seasonPlayerDropdown {
+  min-width: 280px !important;
+  max-width: 400px !important;
+  flex: 2.5 1 280px;
+}
+
 .filter-button {
   display: flex;
   align-items: center;
@@ -188,6 +196,11 @@ body {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
+#playerDropdown .filter-button, #seasonPlayerDropdown .filter-button {
+  font-size: 15px;
+  padding: 14px 18px;
+}
+
 .filter-button:hover {
   border-color: #d1d5db;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
@@ -198,21 +211,6 @@ body {
   outline: none;
   border-color: #3b82f6;
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-  /* Make player filter wider */
-  #playerDropdown, #seasonPlayerDropdown {
-    min-width: 350px !important;
-    max-width: 500px !important;
-    flex: 2.5 1 350px;
-  }
-  #playerDropdown .filter-button, #seasonPlayerDropdown .filter-button {
-    font-size: 1.15rem;
-    padding: 14px 22px;
-  }
-  #playerDropdown .filter-dropdown-menu, #seasonPlayerDropdown .filter-dropdown-menu {
-    min-width: 350px !important;
-    max-width: 500px !important;
-    width: 100% !important;
-  }
 }
 
 .filter-button.active {
@@ -246,16 +244,23 @@ body {
   z-index: 9999;
   max-height: 320px;
   min-width: 220px;
-#playerOptions, #seasonPlayerOptions {
-  min-height: 40px;
-  max-height: 260px;
-  overflow-y: auto;
-}
   overflow-y: auto;
   opacity: 0;
   transform: translateY(-8px) scale(0.95);
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   pointer-events: none;
+}
+
+#playerDropdown .filter-dropdown-menu, #seasonPlayerDropdown .filter-dropdown-menu {
+  min-width: 280px !important;
+  max-width: 400px !important;
+  width: 100% !important;
+}
+
+#playerOptions, #seasonPlayerOptions {
+  min-height: 40px;
+  max-height: 260px;
+  overflow-y: auto;
 }
 
 .filter-dropdown-menu.open {
@@ -313,25 +318,6 @@ body {
   width: 16px;
   height: 16px;
   margin-right: 4px;
-  @media (max-width: 900px) {
-    .filters {
-      flex-direction: column;
-      align-items: stretch;
-      gap: 12px;
-    }
-    .filter-dropdown, #playerDropdown, #seasonPlayerDropdown {
-      min-width: 0;
-      max-width: 100%;
-      width: 100%;
-    }
-    #playerDropdown .filter-dropdown-menu, #seasonPlayerDropdown .filter-dropdown-menu {
-      min-width: 0;
-      max-width: 100vw;
-      width: 100vw;
-      left: 50%;
-      transform: translateX(-50%);
-    }
-  }
   opacity: 0;
   transition: opacity 0.15s ease;
   color: #10b981;
@@ -445,6 +431,26 @@ body {
 }
 
 /* === RESPONSIVE DESIGN === */
+@media (max-width: 900px) {
+  .filters {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+  .filter-dropdown, #playerDropdown, #seasonPlayerDropdown {
+    min-width: 0;
+    max-width: 100%;
+    width: 100%;
+  }
+  #playerDropdown .filter-dropdown-menu, #seasonPlayerDropdown .filter-dropdown-menu {
+    min-width: 0;
+    max-width: 100vw;
+    width: 100vw;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+}
+
 @media (max-width: 768px) {
   .filters {
     gap: 12px;

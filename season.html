@@ -18,6 +18,13 @@
       <h2 class="page-title">Season Averages</h2>
       <div style="display: flex; justify-content: center; width: 100%;">
         <div class="filters">
+          <div class="filter-dropdown" id="seasonPlayerDropdown">
+            <button type="button" class="filter-button" id="seasonPlayerDropdownBtn">Player <span class="filter-arrow">▼</span></button>
+            <div class="filter-dropdown-menu" id="seasonPlayerDropdownMenu">
+              <input type="text" class="filter-search-input" id="seasonPlayerSearch" placeholder="Search players..." autocomplete="off" />
+              <div id="seasonPlayerOptions"></div>
+            </div>
+          </div>
           <div class="filter-dropdown" id="seasonWeekDropdown">
             <button type="button" class="filter-button" id="seasonWeekDropdownBtn">Week <span class="filter-arrow">▼</span></button>
             <div class="filter-dropdown-menu" id="seasonWeekDropdownMenu"></div>
@@ -57,6 +64,50 @@
       const url = "https://script.google.com/macros/s/AKfycbxTRNhPxu9QFv3hdYaaS0tMH7ZekFtvrGaX-d-LyXgm2LeqfXlu-ELiSZII85Gy4w2L6Q/exec"; // e.g., "/data.json" or your API endpoint
 
       async function loadSeasonData() {
+        // --- Player Search Filter ---
+        let allPlayers = [...new Set(playerArr.map(p => p.name))].sort();
+        let selectedPlayers = [];
+        function renderPlayerOptions(filter = "") {
+          const optionsDiv = document.getElementById('seasonPlayerOptions');
+          const lower = filter.toLowerCase();
+          optionsDiv.innerHTML = allPlayers
+            .filter(name => name.toLowerCase().includes(lower))
+            .map(name => `
+              <div class="filter-option${selectedPlayers.includes(name) ? ' selected' : ''}" data-value="${name}">
+                <input type="checkbox" ${selectedPlayers.includes(name) ? 'checked' : ''} />
+                <span class="filter-option-text">${name}</span>
+              </div>
+            `).join("");
+          Array.from(optionsDiv.children).forEach(child => {
+            child.onclick = function(e) {
+              e.stopPropagation();
+              const value = child.dataset.value;
+              if (selectedPlayers.includes(value)) {
+                selectedPlayers = selectedPlayers.filter(v => v !== value);
+              } else {
+                selectedPlayers.push(value);
+              }
+              renderPlayerOptions(document.getElementById('seasonPlayerSearch').value);
+              applyCustomFilters();
+            };
+          });
+        }
+        document.getElementById('seasonPlayerDropdownBtn').onclick = function(e) {
+          e.stopPropagation();
+          closeAllDropdowns();
+          document.getElementById('seasonPlayerDropdownMenu').classList.toggle('open');
+          this.classList.toggle('open');
+        };
+        document.getElementById('seasonPlayerSearch').oninput = function(e) {
+          renderPlayerOptions(this.value);
+        };
+        document.addEventListener('click', function(e) {
+          if (!document.getElementById('seasonPlayerDropdown').contains(e.target)) {
+            document.getElementById('seasonPlayerDropdownMenu').classList.remove('open');
+            document.getElementById('seasonPlayerDropdownBtn').classList.remove('open');
+          }
+        });
+        renderPlayerOptions();
         if (!url) return;
         const response = await fetch(url);
         const data = await response.json();
@@ -167,6 +218,7 @@
           selectedTeams = Array.from(document.querySelectorAll('#seasonTeamDropdownMenu .filter-option.selected')).map(d => d.dataset.value);
           selectedPositions = Array.from(document.querySelectorAll('#seasonPosDropdownMenu .filter-option.selected')).map(d => d.dataset.value);
           let filtered = playerArr;
+          if (selectedPlayers.length) filtered = filtered.filter(p => selectedPlayers.includes(p.name));
           if (selectedWeeks.length) filtered = filtered.filter(p => p.weeks.some(w => selectedWeeks.includes(String(w))));
           if (selectedTeams.length) filtered = filtered.filter(p => selectedTeams.includes(p.team));
           if (selectedPositions.length) filtered = filtered.filter(p => selectedPositions.includes(p.pos));

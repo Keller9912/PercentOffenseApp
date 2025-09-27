@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Weekly Stats</title>
 <link rel="stylesheet" href="styles.css">
-<!-- Sortable styles are now in styles.css -->
 </head>
 <body>
 <div class="container">
@@ -13,31 +12,31 @@
         <a href="index.html" class="back-button">← Back to Home</a>
         <h1>Fantasy Football Dashboard</h1>
         <p>Player % Offense - Weekly Stats</p>
-        </div>
+    </div>
 
-        <div style="display: flex; justify-content: center; width: 100%;">
-            <div class="filters">
-                <div class="filter-dropdown" id="playerDropdown">
-                    <button type="button" class="filter-button" id="playerDropdownBtn">Player <span class="filter-arrow">▼</span></button>
-                    <div class="filter-dropdown-menu" id="playerDropdownMenu">
-                        <input type="text" class="filter-search-input" id="playerSearch" placeholder="Search players..." autocomplete="off" />
-                        <div id="playerOptions"></div>
-                    </div>
-                </div>
-                <div class="filter-dropdown" id="weekDropdown">
-                    <button type="button" class="filter-button" id="weekDropdownBtn">Week <span class="filter-arrow">▼</span></button>
-                    <div class="filter-dropdown-menu" id="weekDropdownMenu"></div>
-                </div>
-                <div class="filter-dropdown" id="teamDropdown">
-                    <button type="button" class="filter-button" id="teamDropdownBtn">Team <span class="filter-arrow">▼</span></button>
-                    <div class="filter-dropdown-menu" id="teamDropdownMenu"></div>
-                </div>
-                <div class="filter-dropdown" id="posDropdown">
-                    <button type="button" class="filter-button" id="posDropdownBtn">Position <span class="filter-arrow">▼</span></button>
-                    <div class="filter-dropdown-menu" id="posDropdownMenu"></div>
+    <div style="display: flex; justify-content: center; width: 100%;">
+        <div class="filters">
+            <div class="filter-dropdown" id="playerDropdown">
+                <button type="button" class="filter-button" id="playerDropdownBtn">Player <span class="filter-arrow">▼</span></button>
+                <div class="filter-dropdown-menu" id="playerDropdownMenu">
+                    <input type="text" class="filter-search-input" id="playerSearch" placeholder="Search players..." autocomplete="off" />
+                    <div id="playerOptions"></div>
                 </div>
             </div>
+            <div class="filter-dropdown" id="weekDropdown">
+                <button type="button" class="filter-button" id="weekDropdownBtn">Week <span class="filter-arrow">▼</span></button>
+                <div class="filter-dropdown-menu" id="weekDropdownMenu"></div>
+            </div>
+            <div class="filter-dropdown" id="teamDropdown">
+                <button type="button" class="filter-button" id="teamDropdownBtn">Team <span class="filter-arrow">▼</span></button>
+                <div class="filter-dropdown-menu" id="teamDropdownMenu"></div>
+            </div>
+            <div class="filter-dropdown" id="posDropdown">
+                <button type="button" class="filter-button" id="posDropdownBtn">Position <span class="filter-arrow">▼</span></button>
+                <div class="filter-dropdown-menu" id="posDropdownMenu"></div>
+            </div>
         </div>
+    </div>
 
     <table class="data-table" id="weeklyTable">
         <thead>
@@ -67,6 +66,7 @@ let sortOrder = {}; // store sort order per column
 // --- Player Search Filter ---
 let allPlayers = [];
 let selectedPlayers = [];
+
 function renderPlayerOptions(filter = "") {
     const optionsDiv = document.getElementById('playerOptions');
     const lower = filter.toLowerCase();
@@ -74,10 +74,11 @@ function renderPlayerOptions(filter = "") {
         .filter(name => name.toLowerCase().includes(lower))
         .map(name => `
             <div class="filter-option${selectedPlayers.includes(name) ? ' selected' : ''}" data-value="${name}">
-                <input type="checkbox" ${selectedPlayers.includes(name) ? 'checked' : ''} />
+                <span class="filter-checkmark">✔</span>
                 <span class="filter-option-text">${name}</span>
             </div>
         `).join("");
+    
     Array.from(optionsDiv.children).forEach(child => {
         child.onclick = function(e) {
             e.stopPropagation();
@@ -93,7 +94,7 @@ function renderPlayerOptions(filter = "") {
     });
 }
 
-// Dropdown open/close logic (move above fetch for global use)
+// Dropdown open/close logic
 function setupDropdown(dropdownId, btnId, menuId) {
     const dropdown = document.getElementById(dropdownId);
     const btn = document.getElementById(btnId);
@@ -111,6 +112,7 @@ function setupDropdown(dropdownId, btnId, menuId) {
         }
     });
 }
+
 function closeAllDropdowns() {
     document.querySelectorAll('.filter-dropdown-menu').forEach(m => m.classList.remove('open'));
     document.querySelectorAll('.filter-button').forEach(b => b.classList.remove('open'));
@@ -133,14 +135,16 @@ fetch('https://script.google.com/macros/s/AKfycbxTRNhPxu9QFv3hdYaaS0tMH7ZekFtvrG
         fpts_ppr: item.fpts_ppr || 0,
         pct_offense: item.pct_offense != null ? (parseFloat(item.pct_offense) * 100).toFixed(1) : 0
     }));
+    
     allPlayers = [...new Set(weeklyData.map(p => p.player))].sort();
     renderPlayerOptions();
     setupCustomFilters();
-    // Use the same dropdown logic as other filters
     setupDropdown('playerDropdown', 'playerDropdownBtn', 'playerDropdownMenu');
+    
     document.getElementById('playerSearch').oninput = function(e) {
         renderPlayerOptions(this.value);
     };
+    
     // Default sort by % Offense descending
     sortOrder = { pct_offense: 'desc' };
     const sorted = [...weeklyData].sort((a, b) => b.pct_offense - a.pct_offense);
@@ -166,28 +170,6 @@ function setupCustomFilters() {
             };
         });
     }
-// Dropdown open/close logic (move outside setupCustomFilters for global use)
-function setupDropdown(dropdownId, btnId, menuId) {
-    const dropdown = document.getElementById(dropdownId);
-    const btn = document.getElementById(btnId);
-    const menu = document.getElementById(menuId);
-    btn.onclick = function(e) {
-        e.stopPropagation();
-        closeAllDropdowns();
-        menu.classList.toggle('open');
-        btn.classList.toggle('open');
-    };
-    document.addEventListener('click', function(e) {
-        if (!dropdown.contains(e.target)) {
-            menu.classList.remove('open');
-            btn.classList.remove('open');
-        }
-    });
-}
-function closeAllDropdowns() {
-    document.querySelectorAll('.filter-dropdown-menu').forEach(m => m.classList.remove('open'));
-    document.querySelectorAll('.filter-button').forEach(b => b.classList.remove('open'));
-}
 
     // Get unique options
     const weeks = [...new Set(weeklyData.map(d => d.week))].sort((a,b)=>a-b);
@@ -201,11 +183,13 @@ function closeAllDropdowns() {
         selectedWeeks = Array.from(document.querySelectorAll('#weekDropdownMenu .filter-option.selected')).map(d => d.dataset.value);
         selectedTeams = Array.from(document.querySelectorAll('#teamDropdownMenu .filter-option.selected')).map(d => d.dataset.value);
         selectedPositions = Array.from(document.querySelectorAll('#posDropdownMenu .filter-option.selected')).map(d => d.dataset.value);
+        
         let filtered = weeklyData;
-    if (selectedPlayers.length) filtered = filtered.filter(d => selectedPlayers.includes(d.player));
+        if (selectedPlayers.length) filtered = filtered.filter(d => selectedPlayers.includes(d.player));
         if (selectedWeeks.length) filtered = filtered.filter(d => selectedWeeks.includes(String(d.week)));
         if (selectedTeams.length) filtered = filtered.filter(d => selectedTeams.includes(d.team));
         if (selectedPositions.length) filtered = filtered.filter(d => selectedPositions.includes(d.pos));
+        
         // Preserve current sort
         let sortKey = Object.keys(sortOrder).find(k => sortOrder[k]);
         let sortDir = sortKey ? sortOrder[sortKey] : null;
@@ -232,22 +216,34 @@ function closeAllDropdowns() {
     setupDropdown('posDropdown', 'posDropdownBtn', 'posDropdownMenu');
 }
 
-function getSelectedValues(select) {
-    return Array.from(select.selectedOptions).map(opt => opt.value);
-}
-
-function applyFilters() {
-    const weekVals = getSelectedValues(document.getElementById('weekFilter'));
-    const teamVals = getSelectedValues(document.getElementById('teamFilter'));
-    const posVals = getSelectedValues(document.getElementById('posFilter'));
-
+// Make applyCustomFilters globally available
+window.applyCustomFilters = function() {
+    const selectedWeeks = Array.from(document.querySelectorAll('#weekDropdownMenu .filter-option.selected')).map(d => d.dataset.value);
+    const selectedTeams = Array.from(document.querySelectorAll('#teamDropdownMenu .filter-option.selected')).map(d => d.dataset.value);
+    const selectedPositions = Array.from(document.querySelectorAll('#posDropdownMenu .filter-option.selected')).map(d => d.dataset.value);
+    
     let filtered = weeklyData;
-    if (weekVals.length) filtered = filtered.filter(d => weekVals.includes(String(d.week)));
-    if (teamVals.length) filtered = filtered.filter(d => teamVals.includes(d.team));
-    if (posVals.length) filtered = filtered.filter(d => posVals.includes(d.pos));
-
+    if (selectedPlayers.length) filtered = filtered.filter(d => selectedPlayers.includes(d.player));
+    if (selectedWeeks.length) filtered = filtered.filter(d => selectedWeeks.includes(String(d.week)));
+    if (selectedTeams.length) filtered = filtered.filter(d => selectedTeams.includes(d.team));
+    if (selectedPositions.length) filtered = filtered.filter(d => selectedPositions.includes(d.pos));
+    
+    // Preserve current sort
+    let sortKey = Object.keys(sortOrder).find(k => sortOrder[k]);
+    let sortDir = sortKey ? sortOrder[sortKey] : null;
+    if (sortKey) {
+        filtered = [...filtered].sort((a, b) => {
+            if(typeof a[sortKey] === 'number' || !isNaN(a[sortKey])) {
+                return sortDir === 'asc' ? a[sortKey]-b[sortKey] : b[sortKey]-a[sortKey];
+            } else {
+                return sortDir === 'asc' 
+                    ? a[sortKey].localeCompare(b[sortKey]) 
+                    : b[sortKey].localeCompare(a[sortKey]);
+            }
+        });
+    }
     renderTable(filtered);
-}
+};
 
 function renderTable(data) {
     table.innerHTML = '';
@@ -281,7 +277,19 @@ function makeSortable() {
             // Toggle sort order
             sortOrder[key] = sortOrder[key] === 'asc' ? 'desc' : 'asc';
             header.classList.add(sortOrder[key] === 'asc' ? 'sorted-asc' : 'sorted-desc');
-            const sorted = [...weeklyData].sort((a,b) => {
+            
+            // Get current filtered data
+            const selectedWeeks = Array.from(document.querySelectorAll('#weekDropdownMenu .filter-option.selected')).map(d => d.dataset.value);
+            const selectedTeams = Array.from(document.querySelectorAll('#teamDropdownMenu .filter-option.selected')).map(d => d.dataset.value);
+            const selectedPositions = Array.from(document.querySelectorAll('#posDropdownMenu .filter-option.selected')).map(d => d.dataset.value);
+            
+            let filtered = weeklyData;
+            if (selectedPlayers.length) filtered = filtered.filter(d => selectedPlayers.includes(d.player));
+            if (selectedWeeks.length) filtered = filtered.filter(d => selectedWeeks.includes(String(d.week)));
+            if (selectedTeams.length) filtered = filtered.filter(d => selectedTeams.includes(d.team));
+            if (selectedPositions.length) filtered = filtered.filter(d => selectedPositions.includes(d.pos));
+            
+            const sorted = [...filtered].sort((a,b) => {
                 if(typeof a[key] === 'number' || !isNaN(a[key])) {
                     return sortOrder[key] === 'asc' ? a[key]-b[key] : b[key]-a[key];
                 } else {

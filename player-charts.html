@@ -3,25 +3,367 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Player Charts</title>
+  <title>Player Charts - Week by Week</title>
   <link rel="stylesheet" href="styles.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+  <style>
+    .content {
+      padding: 30px;
+    }
+    .chart-container {
+      position: relative;
+      height: 400px;
+      margin-top: 30px;
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .toggle-container {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .toggle-switch {
+      position: relative;
+      display: inline-block;
+      width: 50px;
+      height: 26px;
+    }
+    .toggle-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    .toggle-slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #d1d5db;
+      transition: 0.3s;
+      border-radius: 34px;
+    }
+    .toggle-slider:before {
+      position: absolute;
+      content: "";
+      height: 18px;
+      width: 18px;
+      left: 4px;
+      bottom: 4px;
+      background-color: white;
+      transition: 0.3s;
+      border-radius: 50%;
+    }
+    input:checked + .toggle-slider {
+      background-color: #3b82f6;
+    }
+    input:checked + .toggle-slider:before {
+      transform: translateX(24px);
+    }
+    .toggle-label {
+      font-weight: 600;
+      color: #1f2937;
+      font-size: 14px;
+    }
+    .no-data-message {
+      text-align: center;
+      padding: 60px 20px;
+      color: #6b7280;
+      font-size: 1.1rem;
+    }
+    @media (max-width: 768px) {
+      .chart-container {
+        height: 300px;
+        padding: 15px;
+      }
+    }
+  </style>
 </head>
 <body>
   <div class="container">
     <div class="header">
-  <a href="index.html" class="back-button">← Back to Home</a>
-  <h1>Fantasy Football Dashboard</h1>
-  <p>Player Charts by Week</p>
+      <a href="index.html" class="back-button">← Back to Home</a>
+      <h1>Fantasy Football Dashboard</h1>
+      <p>Player Performance - Week by Week</p>
     </div>
 
     <div class="content">
-      <h2 class="page-title">Player Performance Charts</h2>
-      <div class="chart-container">
-        <canvas id="playerChart"></canvas>
+      <h2 class="page-title">Player Charts</h2>
+      <div style="display: flex; justify-content: center; width: 100%;">
+        <div class="filters">
+          <div class="filter-dropdown" id="playerDropdown">
+            <button type="button" class="filter-button" id="playerDropdownBtn">Select Player <span class="filter-arrow">▼</span></button>
+            <div class="filter-dropdown-menu" id="playerDropdownMenu">
+              <input type="text" class="filter-search-input" id="playerSearch" placeholder="Search players..." autocomplete="off" />
+              <div id="playerOptions"></div>
+            </div>
+          </div>
+          
+          <div class="filter-dropdown" id="metricDropdown">
+            <button type="button" class="filter-button" id="metricDropdownBtn">% Offense <span class="filter-arrow">▼</span></button>
+            <div class="filter-dropdown-menu" id="metricDropdownMenu"></div>
+          </div>
+
+          <div class="toggle-container">
+            <label class="toggle-switch">
+              <input type="checkbox" id="fptsToggle">
+              <span class="toggle-slider"></span>
+            </label>
+            <span class="toggle-label">Fantasy Points</span>
+          </div>
+        </div>
+      </div>
+      
+      <div id="chartWrapper">
+        <div class="no-data-message">Select a player to view their weekly performance</div>
       </div>
     </div>
   </div>
-  <script src="script.js"></script>
+
+  <script>
+    const url = "https://script.google.com/macros/s/AKfycbxTRNhPxu9QFv3hdYaaS0tMH7ZekFtvrGaX-d-LyXgm2LeqfXlu-ELiSZII85Gy4w2L6Q/exec";
+
+    let allData = [];
+    let allPlayers = [];
+    let selectedPlayer = null;
+    let selectedMetric = 'offense_pct';
+    let showFpts = false;
+    let chart = null;
+
+    const metrics = [
+      { value: 'offense_pct', label: '% Offense' },
+      { value: 'targets', label: 'Targets' },
+      { value: 'rushes', label: 'Rushes' },
+      { value: 'opportunities', label: 'Opportunities' },
+      { value: 'snaps', label: 'Snaps' }
+    ];
+
+    function closeAllDropdowns() {
+      document.querySelectorAll('.filter-dropdown-menu').forEach(m => m.classList.remove('open'));
+      document.querySelectorAll('.filter-button').forEach(b => b.classList.remove('open'));
+    }
+
+    function setupDropdown(dropdownId, btnId, menuId) {
+      const dropdown = document.getElementById(dropdownId);
+      const btn = document.getElementById(btnId);
+      const menu = document.getElementById(menuId);
+      btn.onclick = function(e) {
+        e.stopPropagation();
+        closeAllDropdowns();
+        menu.classList.toggle('open');
+        btn.classList.toggle('open');
+      };
+      document.addEventListener('click', function(e) {
+        if (!dropdown.contains(e.target)) {
+          menu.classList.remove('open');
+          btn.classList.remove('open');
+        }
+      });
+    }
+
+    function renderPlayerOptions(filter = "") {
+      const optionsDiv = document.getElementById('playerOptions');
+      const lower = filter.toLowerCase();
+      optionsDiv.innerHTML = allPlayers
+        .filter(name => name.toLowerCase().includes(lower))
+        .map(name => `
+          <div class="filter-option${selectedPlayer === name ? ' selected' : ''}" data-value="${name}">
+            <span class="filter-checkmark">✔</span>
+            <span class="filter-option-text">${name}</span>
+          </div>
+        `).join("");
+      
+      Array.from(optionsDiv.children).forEach(child => {
+        child.onclick = function(e) {
+          e.stopPropagation();
+          selectedPlayer = child.dataset.value;
+          document.getElementById('playerDropdownBtn').innerHTML = `${selectedPlayer} <span class="filter-arrow">▼</span>`;
+          closeAllDropdowns();
+          renderPlayerOptions(document.getElementById('playerSearch').value);
+          updateChart();
+        };
+      });
+    }
+
+    function setupMetricDropdown() {
+      const menuDiv = document.getElementById('metricDropdownMenu');
+      menuDiv.innerHTML = metrics.map(m => `
+        <div class="filter-option${selectedMetric === m.value ? ' selected' : ''}" data-value="${m.value}">
+          <span class="filter-checkmark">✔</span>
+          <span class="filter-option-text">${m.label}</span>
+        </div>
+      `).join('');
+      
+      Array.from(menuDiv.children).forEach(child => {
+        child.onclick = function(e) {
+          e.stopPropagation();
+          selectedMetric = child.dataset.value;
+          const label = metrics.find(m => m.value === selectedMetric).label;
+          document.getElementById('metricDropdownBtn').innerHTML = `${label} <span class="filter-arrow">▼</span>`;
+          closeAllDropdowns();
+          setupMetricDropdown();
+          updateChart();
+        };
+      });
+    }
+
+    async function loadData() {
+      if (!url) return;
+      
+      try {
+        const response = await fetch(url);
+        const data = await response.json();
+        console.log('Fetched API data:', data);
+        
+        allData = data.map(row => ({
+          id: row["id"],
+          name: row["player"] || "",
+          pos: row["pos"] || "",
+          team: row["team"] || "",
+          week: Number(row["week"] || 0),
+          snaps: Number(row["snaps"] || 0),
+          team_snaps: Number(row["team_snaps"] || 0),
+          targets: Number(row["targets"] || 0),
+          rushes: Number(row["rushes"] || 0),
+          opportunities: Number(row["opportunities"] || 0),
+          touches: Number(row["touches"] || 0),
+          fpts_ppr: Number(row["fpts_ppr"] || 0),
+          offense_pct: row["team_snaps"] ? (Number(row["opportunities"] || 0) / Number(row["team_snaps"]) * 100) : 0
+        }));
+
+        allPlayers = [...new Set(allData.map(p => p.name))].sort();
+        renderPlayerOptions();
+        setupMetricDropdown();
+        
+        setupDropdown('playerDropdown', 'playerDropdownBtn', 'playerDropdownMenu');
+        setupDropdown('metricDropdown', 'metricDropdownBtn', 'metricDropdownMenu');
+        
+        document.getElementById('playerSearch').oninput = function(e) {
+          renderPlayerOptions(this.value);
+        };
+
+        document.getElementById('fptsToggle').onchange = function() {
+          showFpts = this.checked;
+          updateChart();
+        };
+        
+      } catch (error) {
+        console.error('Error loading data:', error);
+      }
+    }
+
+    function updateChart() {
+      const chartWrapper = document.getElementById('chartWrapper');
+      
+      if (!selectedPlayer) {
+        chartWrapper.innerHTML = '<div class="no-data-message">Select a player to view their weekly performance</div>';
+        return;
+      }
+
+      const playerData = allData
+        .filter(d => d.name === selectedPlayer)
+        .sort((a, b) => a.week - b.week);
+
+      if (playerData.length === 0) {
+        chartWrapper.innerHTML = '<div class="no-data-message">No data available for this player</div>';
+        return;
+      }
+
+      const weeks = playerData.map(d => `Week ${d.week}`);
+      const metricValues = playerData.map(d => d[selectedMetric]);
+      const fptsValues = playerData.map(d => d.fpts_ppr);
+
+      const metricLabel = metrics.find(m => m.value === selectedMetric).label;
+
+      if (chart) {
+        chart.destroy();
+      }
+
+      chartWrapper.innerHTML = '<div class="chart-container"><canvas id="playerChart"></canvas></div>';
+      const ctx = document.getElementById('playerChart').getContext('2d');
+
+      const datasets = [
+        {
+          label: metricLabel,
+          data: metricValues,
+          borderColor: '#3b82f6',
+          backgroundColor: 'rgba(59, 130, 246, 0.1)',
+          tension: 0.4,
+          yAxisID: 'y'
+        }
+      ];
+
+      if (showFpts) {
+        datasets.push({
+          label: 'Fantasy Points (PPR)',
+          data: fptsValues,
+          borderColor: '#10b981',
+          backgroundColor: 'rgba(16, 185, 129, 0.1)',
+          tension: 0.4,
+          yAxisID: 'y1'
+        });
+      }
+
+      chart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: weeks,
+          datasets: datasets
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: {
+            mode: 'index',
+            intersect: false,
+          },
+          plugins: {
+            title: {
+              display: true,
+              text: `${selectedPlayer} - ${metricLabel} by Week`,
+              font: {
+                size: 18,
+                weight: 'bold'
+              }
+            },
+            legend: {
+              display: true,
+              position: 'top',
+            }
+          },
+          scales: {
+            y: {
+              type: 'linear',
+              display: true,
+              position: 'left',
+              title: {
+                display: true,
+                text: metricLabel
+              }
+            },
+            y1: showFpts ? {
+              type: 'linear',
+              display: true,
+              position: 'right',
+              title: {
+                display: true,
+                text: 'Fantasy Points'
+              },
+              grid: {
+                drawOnChartArea: false,
+              }
+            } : undefined
+          }
+        }
+      });
+    }
+
+    window.addEventListener("DOMContentLoaded", () => {
+      loadData();
+    });
+  </script>
 </body>
 </html>

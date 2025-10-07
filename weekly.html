@@ -5,6 +5,20 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Weekly Stats</title>
 <link rel="stylesheet" href="styles.css">
+<style>
+    .data-table td.player-link {
+        color: #3b82f6;
+        cursor: pointer;
+        text-decoration: none;
+        font-weight: 500;
+        transition: color 0.2s;
+    }
+
+    .data-table td.player-link:hover {
+        color: #1d4ed8;
+        text-decoration: underline;
+    }
+</style>
 </head>
 <body>
 <div class="container">
@@ -251,7 +265,7 @@ function renderTable(data) {
         const tr = document.createElement('tr');
         tr.innerHTML = `
             <td>${row.week}</td>
-            <td>${row.player}</td>
+            <td class="player-link" onclick="window.location.href='player-charts.html?player=${encodeURIComponent(row.player)}'">${row.player}</td>
             <td>${row.team}</td>
             <td>${row.pos}</td>
             <td>${row.snaps}</td>

@@ -5,6 +5,20 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Season Player % Offense</title>
   <link rel="stylesheet" href="styles.css" />
+  <style>
+    .data-table td.player-link {
+      color: #3b82f6;
+      cursor: pointer;
+      text-decoration: none;
+      font-weight: 500;
+      transition: color 0.2s;
+    }
+
+    .data-table td.player-link:hover {
+      color: #1d4ed8;
+      text-decoration: underline;
+    }
+  </style>
 </head>
 <body>
   <div class="container">
@@ -280,7 +294,7 @@
       data.forEach(player => {
         const tr = document.createElement("tr");
         tr.innerHTML = `
-          <td>${player.name}</td>
+          <td class="player-link" onclick="window.location.href='player-charts.html?player=${encodeURIComponent(player.name)}'">${player.name}</td>
           <td>${player.pos}</td>
           <td>${player.team}</td>
           <td>${player.games}</td>

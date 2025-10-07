@@ -6,22 +6,398 @@
   <title>Team Charts</title>
   <link rel="stylesheet" href="styles.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+  <style>
+    .content {
+      padding: 30px;
+    }
+    .chart-container {
+      position: relative;
+      height: 500px;
+      margin-top: 30px;
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .no-data-message {
+      text-align: center;
+      padding: 60px 20px;
+      color: #6b7280;
+      font-size: 1.1rem;
+    }
+    @media (max-width: 768px) {
+      .chart-container {
+        height: 400px;
+        padding: 15px;
+      }
+    }
+  </style>
 </head>
 <body>
   <div class="container">
     <div class="header">
-  <a href="index.html" class="back-button">← Back to Home</a>
-  <h1>Fantasy Football Dashboard</h1>
-  <p>Team Charts by Week</p>
+      <a href="index.html" class="back-button">← Back to Home</a>
+      <h1>Fantasy Football Dashboard</h1>
+      <p>Team Charts by Week</p>
     </div>
-
+     
     <div class="content">
       <h2 class="page-title">Team Performance Charts</h2>
-      <div class="chart-container">
-        <canvas id="teamChart"></canvas>
+      <div style="display: flex; justify-content: center; width: 100%;">
+        <div class="filters">
+          <div class="filter-dropdown" id="teamDropdown">
+            <button type="button" class="filter-button" id="teamDropdownBtn">Select Team <span class="filter-arrow">▼</span></button>
+            <div class="filter-dropdown-menu" id="teamDropdownMenu"></div>
+          </div>
+          
+          <div class="filter-dropdown" id="posDropdown">
+            <button type="button" class="filter-button" id="posDropdownBtn">Position <span class="filter-arrow">▼</span></button>
+            <div class="filter-dropdown-menu" id="posDropdownMenu"></div>
+          </div>
+
+          <div class="filter-dropdown" id="weeksDropdown">
+            <button type="button" class="filter-button" id="weeksDropdownBtn">Weeks Played <span class="filter-arrow">▼</span></button>
+            <div class="filter-dropdown-menu" id="weeksDropdownMenu"></div>
+          </div>
+
+          <div class="filter-dropdown" id="metricDropdown">
+            <button type="button" class="filter-button" id="metricDropdownBtn">% Offense <span class="filter-arrow">▼</span></button>
+            <div class="filter-dropdown-menu" id="metricDropdownMenu"></div>
+          </div>
+        </div>
+      </div>
+      
+      <div id="chartWrapper">
+        <div class="no-data-message">Select a team to view player performance</div>
       </div>
     </div>
   </div>
-  <script src="script.js"></script>
+
+  <script>
+    const url = "https://script.google.com/macros/s/AKfycbxTRNhPxu9QFv3hdYaaS0tMH7ZekFtvrGaX-d-LyXgm2LeqfXlu-ELiSZII85Gy4w2L6Q/exec";
+
+    let allData = [];
+    let selectedTeam = null;
+    let selectedPositions = [];
+    let selectedWeeks = [];
+    let selectedMetric = 'offense_pct';
+    let chart = null;
+
+    const metrics = [
+      { value: 'offense_pct', label: '% Offense' },
+      { value: 'targets', label: 'Targets' },
+      { value: 'rushes', label: 'Rushes' },
+      { value: 'opportunities', label: 'Opportunities' },
+      { value: 'snaps', label: 'Snaps' },
+      { value: 'fpts_ppr', label: 'Fantasy Points (PPR)' }
+    ];
+
+    const chartColors = [
+      '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6',
+      '#ec4899', '#14b8a6', '#f97316', '#06b6d4', '#84cc16',
+      '#6366f1', '#d946ef', '#0ea5e9', '#f43f5e', '#22c55e'
+    ];
+
+    function closeAllDropdowns() {
+      document.querySelectorAll('.filter-dropdown-menu').forEach(m => m.classList.remove('open'));
+      document.querySelectorAll('.filter-button').forEach(b => b.classList.remove('open'));
+    }
+
+    function setupDropdown(dropdownId, btnId, menuId) {
+      const dropdown = document.getElementById(dropdownId);
+      const btn = document.getElementById(btnId);
+      const menu = document.getElementById(menuId);
+      btn.onclick = function(e) {
+        e.stopPropagation();
+        closeAllDropdowns();
+        menu.classList.toggle('open');
+        btn.classList.toggle('open');
+      };
+      document.addEventListener('click', function(e) {
+        if (!dropdown.contains(e.target)) {
+          menu.classList.remove('open');
+          btn.classList.remove('open');
+        }
+      });
+    }
+
+    function setupTeamDropdown() {
+      const teams = [...new Set(allData.map(d => d.team))].sort();
+      const menuDiv = document.getElementById('teamDropdownMenu');
+      
+      menuDiv.innerHTML = teams.map(team => `
+        <div class="filter-option${selectedTeam === team ? ' selected' : ''}" data-value="${team}">
+          <span class="filter-checkmark">✔</span>
+          <span class="filter-option-text">${team}</span>
+        </div>
+      `).join('');
+      
+      Array.from(menuDiv.children).forEach(child => {
+        child.onclick = function(e) {
+          e.stopPropagation();
+          selectedTeam = child.dataset.value;
+          document.getElementById('teamDropdownBtn').innerHTML = `${selectedTeam} <span class="filter-arrow">▼</span>`;
+          closeAllDropdowns();
+          setupTeamDropdown();
+          updateChart();
+        };
+      });
+    }
+
+    function setupPositionDropdown() {
+      const positions = [...new Set(allData.map(d => d.pos))].sort();
+      const menuDiv = document.getElementById('posDropdownMenu');
+      
+      menuDiv.innerHTML = positions.map(pos => `
+        <div class="filter-option${selectedPositions.includes(pos) ? ' selected' : ''}" data-value="${pos}">
+          <span class="filter-checkmark">✔</span>
+          <span class="filter-option-text">${pos}</span>
+        </div>
+      `).join('');
+      
+      Array.from(menuDiv.children).forEach(child => {
+        child.onclick = function(e) {
+          e.stopPropagation();
+          const pos = child.dataset.value;
+          if (selectedPositions.includes(pos)) {
+            selectedPositions = selectedPositions.filter(p => p !== pos);
+          } else {
+            selectedPositions.push(pos);
+          }
+          setupPositionDropdown();
+          updateChart();
+        };
+      });
+    }
+
+    function setupWeeksDropdown() {
+      if (!selectedTeam) return;
+      
+      const teamData = allData.filter(d => d.team === selectedTeam);
+      const playerWeeks = {};
+      
+      teamData.forEach(d => {
+        if (!playerWeeks[d.name]) playerWeeks[d.name] = new Set();
+        playerWeeks[d.name].add(d.week);
+      });
+      
+      const weekCounts = [...new Set(Object.values(playerWeeks).map(weeks => weeks.size))].sort((a,b) => a - b);
+      const menuDiv = document.getElementById('weeksDropdownMenu');
+      
+      menuDiv.innerHTML = weekCounts.map(count => `
+        <div class="filter-option${selectedWeeks.includes(count) ? ' selected' : ''}" data-value="${count}">
+          <span class="filter-checkmark">✔</span>
+          <span class="filter-option-text">${count} ${count === 1 ? 'Week' : 'Weeks'}</span>
+        </div>
+      `).join('');
+      
+      Array.from(menuDiv.children).forEach(child => {
+        child.onclick = function(e) {
+          e.stopPropagation();
+          const weeks = Number(child.dataset.value);
+          if (selectedWeeks.includes(weeks)) {
+            selectedWeeks = selectedWeeks.filter(w => w !== weeks);
+          } else {
+            selectedWeeks.push(weeks);
+          }
+          setupWeeksDropdown();
+          updateChart();
+        };
+      });
+    }
+
+    function setupMetricDropdown() {
+      const menuDiv = document.getElementById('metricDropdownMenu');
+      menuDiv.innerHTML = metrics.map(m => `
+        <div class="filter-option${selectedMetric === m.value ? ' selected' : ''}" data-value="${m.value}">
+          <span class="filter-checkmark">✔</span>
+          <span class="filter-option-text">${m.label}</span>
+        </div>
+      `).join('');
+      
+      Array.from(menuDiv.children).forEach(child => {
+        child.onclick = function(e) {
+          e.stopPropagation();
+          selectedMetric = child.dataset.value;
+          const label = metrics.find(m => m.value === selectedMetric).label;
+          document.getElementById('metricDropdownBtn').innerHTML = `${label} <span class="filter-arrow">▼</span>`;
+          closeAllDropdowns();
+          setupMetricDropdown();
+          updateChart();
+        };
+      });
+    }
+
+    async function loadData() {
+      if (!url) return;
+      
+      try {
+        const response = await fetch(url);
+        const data = await response.json();
+        console.log('Fetched API data:', data);
+        
+        allData = data.map(row => ({
+          id: row["id"],
+          name: row["player"] || "",
+          pos: row["pos"] || "",
+          team: row["team"] || "",
+          week: Number(row["week"] || 0),
+          snaps: Number(row["snaps"] || 0),
+          team_snaps: Number(row["team_snaps"] || 0),
+          targets: Number(row["targets"] || 0),
+          rushes: Number(row["rushes"] || 0),
+          opportunities: Number(row["opportunities"] || 0),
+          touches: Number(row["touches"] || 0),
+          fpts_ppr: Number(row["fpts_ppr"] || 0),
+          offense_pct: row["team_snaps"] ? (Number(row["opportunities"] || 0) / Number(row["team_snaps"]) * 100) : 0
+        }));
+
+        setupTeamDropdown();
+        setupPositionDropdown();
+        setupMetricDropdown();
+        
+        setupDropdown('teamDropdown', 'teamDropdownBtn', 'teamDropdownMenu');
+        setupDropdown('posDropdown', 'posDropdownBtn', 'posDropdownMenu');
+        setupDropdown('weeksDropdown', 'weeksDropdownBtn', 'weeksDropdownMenu');
+        setupDropdown('metricDropdown', 'metricDropdownBtn', 'metricDropdownMenu');
+        
+      } catch (error) {
+        console.error('Error loading data:', error);
+      }
+    }
+
+    function updateChart() {
+      const chartWrapper = document.getElementById('chartWrapper');
+      
+      if (!selectedTeam) {
+        chartWrapper.innerHTML = '<div class="no-data-message">Select a team to view player performance</div>';
+        return;
+      }
+
+      // Filter data
+      let filteredData = allData.filter(d => d.team === selectedTeam);
+      
+      if (selectedPositions.length > 0) {
+        filteredData = filteredData.filter(d => selectedPositions.includes(d.pos));
+      }
+
+      // Calculate weeks played for each player
+      const playerWeeks = {};
+      filteredData.forEach(d => {
+        if (!playerWeeks[d.name]) playerWeeks[d.name] = new Set();
+        playerWeeks[d.name].add(d.week);
+      });
+
+      // Filter by weeks played
+      if (selectedWeeks.length > 0) {
+        const playersToInclude = Object.keys(playerWeeks).filter(name => 
+          selectedWeeks.includes(playerWeeks[name].size)
+        );
+        filteredData = filteredData.filter(d => playersToInclude.includes(d.name));
+      }
+
+      // Update weeks dropdown when team changes
+      setupWeeksDropdown();
+
+      if (filteredData.length === 0) {
+        chartWrapper.innerHTML = '<div class="no-data-message">No data available for selected filters</div>';
+        return;
+      }
+
+      // Group by player
+      const playerData = {};
+      filteredData.forEach(d => {
+        if (!playerData[d.name]) {
+          playerData[d.name] = [];
+        }
+        playerData[d.name].push(d);
+      });
+
+      // Sort each player's data by week
+      Object.keys(playerData).forEach(name => {
+        playerData[name].sort((a, b) => a.week - b.week);
+      });
+
+      // Get all unique weeks
+      const allWeeks = [...new Set(filteredData.map(d => d.week))].sort((a, b) => a - b);
+      const weekLabels = allWeeks.map(w => `Week ${w}`);
+
+      // Create datasets for each player
+      const datasets = Object.keys(playerData).map((playerName, idx) => {
+        const data = allWeeks.map(week => {
+          const weekData = playerData[playerName].find(d => d.week === week);
+          return weekData ? weekData[selectedMetric] : null;
+        });
+
+        return {
+          label: playerName,
+          data: data,
+          borderColor: chartColors[idx % chartColors.length],
+          backgroundColor: chartColors[idx % chartColors.length] + '20',
+          tension: 0.4,
+          spanGaps: true
+        };
+      });
+
+      const metricLabel = metrics.find(m => m.value === selectedMetric).label;
+
+      if (chart) {
+        chart.destroy();
+      }
+
+      chartWrapper.innerHTML = '<div class="chart-container"><canvas id="teamChart"></canvas></div>';
+      const ctx = document.getElementById('teamChart').getContext('2d');
+
+      chart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: weekLabels,
+          datasets: datasets
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: {
+            mode: 'index',
+            intersect: false,
+          },
+          plugins: {
+            title: {
+              display: true,
+              text: `${selectedTeam} - ${metricLabel} by Week`,
+              font: {
+                size: 18,
+                weight: 'bold'
+              }
+            },
+            legend: {
+              display: true,
+              position: 'top',
+              labels: {
+                boxWidth: 12,
+                padding: 10,
+                font: {
+                  size: 11
+                }
+              }
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              title: {
+                display: true,
+                text: metricLabel
+              }
+            }
+          }
+        }
+      });
+    }
+
+    window.addEventListener("DOMContentLoaded", () => {
+      loadData();
+    });
+  </script>
 </body>
 </html>

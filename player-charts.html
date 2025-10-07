@@ -362,7 +362,17 @@
     }
 
     window.addEventListener("DOMContentLoaded", () => {
-      loadData();
+      loadData().then(() => {
+        // Check if player is passed in URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const playerParam = urlParams.get('player');
+        if (playerParam && allPlayers.includes(playerParam)) {
+          selectedPlayer = playerParam;
+          document.getElementById('playerDropdownBtn').innerHTML = `${selectedPlayer} <span class="filter-arrow">▼</span>`;
+          renderPlayerOptions();
+          updateChart();
+        }
+      });
     });
   </script>
 </body>

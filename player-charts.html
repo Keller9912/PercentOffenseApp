@@ -74,10 +74,40 @@
       color: #6b7280;
       font-size: 1.1rem;
     }
+    .comparison-section {
+      margin-top: 20px;
+      padding: 20px;
+      background: #f9fafb;
+      border-radius: 12px;
+      border: 1px solid #e5e7eb;
+    }
+    .comparison-title {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: #1f2937;
+      margin-bottom: 15px;
+      text-align: center;
+    }
+    .comparison-filters {
+      display: flex;
+      gap: 16px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .comparison-filters .filter-dropdown {
+      min-width: 280px;
+      max-width: 400px;
+      flex: 1 1 280px;
+    }
     @media (max-width: 768px) {
       .chart-container {
         height: 300px;
         padding: 15px;
+      }
+      .comparison-filters .filter-dropdown {
+        min-width: 0;
+        max-width: 100%;
+        width: 100%;
       }
     }
   </style>
@@ -117,6 +147,35 @@
         </div>
       </div>
       
+      <div class="comparison-section">
+        <div class="comparison-title">Compare Players (Optional)</div>
+        <div class="comparison-filters">
+          <div class="filter-dropdown" id="comparePlayer1Dropdown">
+            <button type="button" class="filter-button" id="comparePlayer1DropdownBtn">Compare Player 1 <span class="filter-arrow">▼</span></button>
+            <div class="filter-dropdown-menu" id="comparePlayer1DropdownMenu">
+              <input type="text" class="filter-search-input" id="comparePlayer1Search" placeholder="Search players..." autocomplete="off" />
+              <div id="comparePlayer1Options"></div>
+            </div>
+          </div>
+          
+          <div class="filter-dropdown" id="comparePlayer2Dropdown">
+            <button type="button" class="filter-button" id="comparePlayer2DropdownBtn">Compare Player 2 <span class="filter-arrow">▼</span></button>
+            <div class="filter-dropdown-menu" id="comparePlayer2DropdownMenu">
+              <input type="text" class="filter-search-input" id="comparePlayer2Search" placeholder="Search players..." autocomplete="off" />
+              <div id="comparePlayer2Options"></div>
+            </div>
+          </div>
+          
+          <div class="filter-dropdown" id="comparePlayer3Dropdown">
+            <button type="button" class="filter-button" id="comparePlayer3DropdownBtn">Compare Player 3 <span class="filter-arrow">▼</span></button>
+            <div class="filter-dropdown-menu" id="comparePlayer3DropdownMenu">
+              <input type="text" class="filter-search-input" id="comparePlayer3Search" placeholder="Search players..." autocomplete="off" />
+              <div id="comparePlayer3Options"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
       <div id="chartWrapper">
         <div class="no-data-message">Select a player to view their weekly performance</div>
       </div>
@@ -129,9 +188,19 @@
     let allData = [];
     let allPlayers = [];
     let selectedPlayer = null;
+    let comparePlayer1 = null;
+    let comparePlayer2 = null;
+    let comparePlayer3 = null;
     let selectedMetric = 'offense_pct';
     let showFpts = false;
     let chart = null;
+
+    const chartColors = [
+      '#3b82f6', // Blue - main player
+      '#f59e0b', // Orange - compare 1
+      '#8b5cf6', // Purple - compare 2
+      '#ec4899'  // Pink - compare 3
+    ];
 
     const metrics = [
       { value: 'offense_pct', label: '% Offense' },
@@ -161,6 +230,44 @@
           menu.classList.remove('open');
           btn.classList.remove('open');
         }
+      });
+    }
+
+    function renderComparePlayerOptions(compareNum, filter = "") {
+      const optionsDiv = document.getElementById(`comparePlayer${compareNum}Options`);
+      const lower = filter.toLowerCase();
+      const comparePlayer = compareNum === 1 ? comparePlayer1 : compareNum === 2 ? comparePlayer2 : comparePlayer3;
+      
+      optionsDiv.innerHTML = allPlayers
+        .filter(name => name.toLowerCase().includes(lower))
+        .map(name => `
+          <div class="filter-option${comparePlayer === name ? ' selected' : ''}" data-value="${name}">
+            <span class="filter-checkmark">✔</span>
+            <span class="filter-option-text">${name}</span>
+          </div>
+        `).join("");
+      
+      Array.from(optionsDiv.children).forEach(child => {
+        child.onclick = function(e) {
+          e.stopPropagation();
+          const value = child.dataset.value;
+          if (compareNum === 1) {
+            comparePlayer1 = comparePlayer1 === value ? null : value;
+            document.getElementById('comparePlayer1DropdownBtn').innerHTML = 
+              `${comparePlayer1 || 'Compare Player 1'} <span class="filter-arrow">▼</span>`;
+          } else if (compareNum === 2) {
+            comparePlayer2 = comparePlayer2 === value ? null : value;
+            document.getElementById('comparePlayer2DropdownBtn').innerHTML = 
+              `${comparePlayer2 || 'Compare Player 2'} <span class="filter-arrow">▼</span>`;
+          } else {
+            comparePlayer3 = comparePlayer3 === value ? null : value;
+            document.getElementById('comparePlayer3DropdownBtn').innerHTML = 
+              `${comparePlayer3 || 'Compare Player 3'} <span class="filter-arrow">▼</span>`;
+          }
+          closeAllDropdowns();
+          renderComparePlayerOptions(compareNum, document.getElementById(`comparePlayer${compareNum}Search`).value);
+          updateChart();
+        };
       });
     }
 
@@ -236,13 +343,31 @@
 
         allPlayers = [...new Set(allData.map(p => p.name))].sort();
         renderPlayerOptions();
+        renderComparePlayerOptions(1);
+        renderComparePlayerOptions(2);
+        renderComparePlayerOptions(3);
         setupMetricDropdown();
         
         setupDropdown('playerDropdown', 'playerDropdownBtn', 'playerDropdownMenu');
         setupDropdown('metricDropdown', 'metricDropdownBtn', 'metricDropdownMenu');
+        setupDropdown('comparePlayer1Dropdown', 'comparePlayer1DropdownBtn', 'comparePlayer1DropdownMenu');
+        setupDropdown('comparePlayer2Dropdown', 'comparePlayer2DropdownBtn', 'comparePlayer2DropdownMenu');
+        setupDropdown('comparePlayer3Dropdown', 'comparePlayer3DropdownBtn', 'comparePlayer3DropdownMenu');
         
         document.getElementById('playerSearch').oninput = function(e) {
           renderPlayerOptions(this.value);
+        };
+
+        document.getElementById('comparePlayer1Search').oninput = function(e) {
+          renderComparePlayerOptions(1, this.value);
+        };
+
+        document.getElementById('comparePlayer2Search').oninput = function(e) {
+          renderComparePlayerOptions(2, this.value);
+        };
+
+        document.getElementById('comparePlayer3Search').oninput = function(e) {
+          renderComparePlayerOptions(3, this.value);
         };
 
         document.getElementById('fptsToggle').onchange = function() {
@@ -263,18 +388,27 @@
         return;
       }
 
-      const playerData = allData
-        .filter(d => d.name === selectedPlayer)
-        .sort((a, b) => a.week - b.week);
+      // Collect all players to display
+      const playersToShow = [selectedPlayer];
+      if (comparePlayer1) playersToShow.push(comparePlayer1);
+      if (comparePlayer2) playersToShow.push(comparePlayer2);
+      if (comparePlayer3) playersToShow.push(comparePlayer3);
 
-      if (playerData.length === 0) {
+      // Get data for all players
+      const allPlayerData = playersToShow.map(playerName => {
+        return allData
+          .filter(d => d.name === playerName)
+          .sort((a, b) => a.week - b.week);
+      });
+
+      if (allPlayerData[0].length === 0) {
         chartWrapper.innerHTML = '<div class="no-data-message">No data available for this player</div>';
         return;
       }
 
-      const weeks = playerData.map(d => `Week ${d.week}`);
-      const metricValues = playerData.map(d => d[selectedMetric]);
-      const fptsValues = playerData.map(d => d.fpts_ppr);
+      // Get all unique weeks across all players
+      const allWeeks = [...new Set(allPlayerData.flat().map(d => d.week))].sort((a, b) => a - b);
+      const weekLabels = allWeeks.map(w => `Week ${w}`);
 
       const metricLabel = metrics.find(m => m.value === selectedMetric).label;
 
@@ -285,32 +419,51 @@
       chartWrapper.innerHTML = '<div class="chart-container"><canvas id="playerChart"></canvas></div>';
       const ctx = document.getElementById('playerChart').getContext('2d');
 
-      const datasets = [
-        {
-          label: metricLabel,
+      // Create datasets for each player
+      const datasets = playersToShow.map((playerName, idx) => {
+        const playerData = allPlayerData[idx];
+        const metricValues = allWeeks.map(week => {
+          const weekData = playerData.find(d => d.week === week);
+          return weekData ? weekData[selectedMetric] : null;
+        });
+
+        return {
+          label: playerName,
           data: metricValues,
-          borderColor: '#3b82f6',
-          backgroundColor: 'rgba(59, 130, 246, 0.1)',
+          borderColor: chartColors[idx],
+          backgroundColor: chartColors[idx] + '20',
           tension: 0.4,
+          spanGaps: true,
           yAxisID: 'y'
-        }
-      ];
+        };
+      });
 
       if (showFpts) {
-        datasets.push({
-          label: 'Fantasy Points (PPR)',
-          data: fptsValues,
-          borderColor: '#10b981',
-          backgroundColor: 'rgba(16, 185, 129, 0.1)',
-          tension: 0.4,
-          yAxisID: 'y1'
+        // Add FPTS datasets for each player
+        playersToShow.forEach((playerName, idx) => {
+          const playerData = allPlayerData[idx];
+          const fptsValues = allWeeks.map(week => {
+            const weekData = playerData.find(d => d.week === week);
+            return weekData ? weekData.fpts_ppr : null;
+          });
+
+          datasets.push({
+            label: `${playerName} - Fantasy Points`,
+            data: fptsValues,
+            borderColor: chartColors[idx],
+            backgroundColor: chartColors[idx] + '20',
+            borderDash: [5, 5],
+            tension: 0.4,
+            spanGaps: true,
+            yAxisID: 'y1'
+          });
         });
       }
 
       chart = new Chart(ctx, {
         type: 'line',
         data: {
-          labels: weeks,
+          labels: weekLabels,
           datasets: datasets
         },
         options: {
@@ -323,7 +476,7 @@
           plugins: {
             title: {
               display: true,
-              text: `${selectedPlayer} - ${metricLabel} by Week`,
+              text: `${metricLabel} by Week${playersToShow.length > 1 ? ' - Player Comparison' : ''}`,
               font: {
                 size: 18,
                 weight: 'bold'

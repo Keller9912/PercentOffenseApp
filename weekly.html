@@ -70,8 +70,8 @@
             <tr>
                 <th class="sortable" data-key="week">Week</th>
                 <th class="sortable" data-key="player">Player Name</th>
-                <th class="sortable" data-key="team">Team</th>
                 <th class="sortable" data-key="pos">Pos</th>
+                <th class="sortable" data-key="team">Team</th>
                 <th class="sortable" data-key="snaps">Snaps</th>
                 <th class="sortable" data-key="team_snaps">Team Snaps</th>
                 <th class="sortable" data-key="snap_pct">Snap %</th>
@@ -279,8 +279,8 @@ function renderTable(data) {
         tr.innerHTML = `
             <td>${row.week}</td>
             <td class="player-link" onclick="window.location.href='player-charts.html?player=${encodeURIComponent(row.player)}'">${row.player}</td>
-            <td>${row.team}</td>
             <td>${row.pos}</td>
+            <td class="team-link" onclick="window.location.href='team-charts.html?team=${encodeURIComponent(row.team)}'">${row.team}</td>
             <td>${row.snaps}</td>
             <td>${row.team_snaps}</td>
             <td>${row.snap_pct}</td>

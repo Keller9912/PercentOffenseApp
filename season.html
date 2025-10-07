@@ -309,7 +309,7 @@
         tr.innerHTML = `
           <td class="player-link" onclick="window.location.href='player-charts.html?player=${encodeURIComponent(player.name)}'">${player.name}</td>
           <td>${player.pos}</td>
-          <td>${player.team}</td>
+          <td class="team-link" onclick="window.location.href='team-charts.html?team=${encodeURIComponent(player.team)}'">${player.team}</td>
           <td>${player.games}</td>
           <td>${player.snaps}</td>
           <td>${player.targets}</td>

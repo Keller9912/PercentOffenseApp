@@ -396,7 +396,20 @@
     }
 
     window.addEventListener("DOMContentLoaded", () => {
-      loadData();
+      loadData().then(() => {
+        // Check if team is passed in URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const teamParam = urlParams.get('team');
+        if (teamParam) {
+          const teams = [...new Set(allData.map(d => d.team))];
+          if (teams.includes(teamParam)) {
+            selectedTeam = teamParam;
+            document.getElementById('teamDropdownBtn').innerHTML = `${selectedTeam} <span class="filter-arrow">▼</span>`;
+            setupTeamDropdown();
+            updateChart();
+          }
+        }
+      });
     });
   </script>
 </body>

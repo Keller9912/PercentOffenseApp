@@ -79,6 +79,7 @@
             <th class="sortable" data-sort="opportunities">Opportunities</th>
             <th class="sortable" data-sort="touches">Touches</th>
             <th class="sortable" data-sort="snap_pct">Snap %</th>
+            <th class="sortable" data-sort="ppr">PPR</th>
             <th class="sortable" data-sort="offense_pct">% Offense</th>
           </tr>
         </thead>
@@ -175,6 +176,7 @@
               rushes: 0,
               opportunities: 0,
               touches: 0,
+              ppr: 0,
               weeks: []
             };
           }
@@ -185,6 +187,7 @@
           grouped[id].rushes += Number(row["rushes"] || 0);
           grouped[id].opportunities += Number(row["opportunities"] || 0);
           grouped[id].touches += Number(row["touches"] || 0);
+          grouped[id].ppr += Number(row["fpts_ppr"] || 0);
           grouped[id].weeks.push(row["week"]);
         });
 
@@ -300,7 +303,7 @@
       const tableBody = document.querySelector('#seasonTable tbody');
       tableBody.innerHTML = "";
       if (!data || data.length === 0) {
-        tableBody.innerHTML = '<tr><td colspan="11">No data available</td></tr>';
+        tableBody.innerHTML = '<tr><td colspan="12">No data available</td></tr>';
         console.warn('renderTable called with empty data:', data);
         return;
       }
@@ -317,6 +320,7 @@
           <td>${player.opportunities}</td>
           <td>${player.touches}</td>
           <td>${player.snap_pct.toFixed(1)}</td>
+          <td>${player.ppr.toFixed(1)}</td>
           <td class="percent-offense">${player.offense_pct.toFixed(1)}</td>
         `;
         tableBody.appendChild(tr);
@@ -328,8 +332,8 @@
         currentSort.asc = !currentSort.asc;
       } else {
         currentSort.column = column;
-        // Default to descending for offense_pct, ascending otherwise
-        currentSort.asc = column === 'offense_pct' ? false : true;
+        // Default to descending for offense_pct and ppr, ascending otherwise
+        currentSort.asc = (column === 'offense_pct' || column === 'ppr') ? false : true;
       }
       
       // Get current filtered data and apply sort
